@@ -87,12 +87,12 @@ const WMESTS_SDKPARAMS = Object.freeze({scriptId: SCRIPT_ID, scriptName: SCRIPT_
  * @type {number}  If so, value changes to 1. This it's Global var WMESTS.
  * @default 0
  */
-var actionsloaded = 0;
+let actionsloaded = 0;
 /**
  * This var contains all the used and localized displayable text of the script. Some error messages (critical ones or less important ones) can not be included since doesn't need to be localized.
  * @type {Array[]} Global var WMESTS.
  */
-var translationsInfo = []
+let translationsInfo = [];
 /**
  * Obtains the WME URL parameters after the "?" sign.
  * @type {URLSearchParams} Web API Object "The URLSearchParams interface defines utility methods to work with the query string of a URL."
@@ -104,7 +104,7 @@ let wmeGETparams = new URLSearchParams(document.location.search.substring(1));
 */
 let wmeStsTo = wmeGETparams.get('wmeststo')!==null ? Number(wmeGETparams.get('wmeststo')) : null //Fix implemented, when null is Number() it's converted to 0
 /**KILL SWITCH @default false */
-var abort = false;
+let abort = false;
 /**
  * Settings config `HTML` to be injected into the `tabPane` HTML of the `RegisterSidebarTabResult` Interface of the {@link WmeSDK} sidebar Tab.  
  * Shall only be used once in the script.
@@ -145,7 +145,7 @@ const SETTINGS_ICON = '<img height="25px;" src="data:image/png;base64,iVBORw0KGg
  * @type {number}
  * @default 0
  */
-var sent = 0;
+let sent = 0;
 /**Editor Icons used for Bot Profile image when sending the requests through Discord @constant*/
 const EDITOR_ICONS = Object.freeze({
     1: "https://storage.googleapis.com/wazeopedia-files/0/0d/20_Map_editor_1.png",
@@ -177,7 +177,7 @@ function init() {
     log("WazeWrap used for alerts it's still loading so we'll wait");
     return;
     }
-    (!GM_info.scriptWillUpdate || !GM_info.script.options.check_for_updates) ? WazeWrap.Alerts.error(SCRIPT_NAME, 'Check your TM settings... Unable to check for script updates'):undefined
+    (!GM_info.scriptWillUpdate || !GM_info.script.options.check_for_updates) ? WazeWrap.Alerts.error(SCRIPT_NAME, 'Check your TM settings... Unable to check for script updates') : undefined;
     //Settings Tab
     wmeSDK_STS.Sidebar.registerScriptTab()
         .then((RegisterSidebarTabResult)=>{
@@ -189,7 +189,7 @@ function init() {
         .catch(()=>{
             WazeWrap.Alerts.error(SCRIPT_NAME, "Unable to load the SideBar Tab...")
             log("Unable to load the SideBar Tab...")
-        });
+        })
     //Loading translations
     localization().then(() =>{
         if(window.location.href.indexOf("segment") > -1 || window.location.href.indexOf("editSuggestions") > -1) {
@@ -200,9 +200,9 @@ function init() {
             }
             Loadactions();
         }
-        LoadTab()
-    })
-    wmeStsTo !== null ? autoLockClick():undefined; //Check if it's a PL open
+        LoadTab();
+    });
+    (wmeStsTo !== null) ? autoLockClick() : undefined; //Check if it's a PL open
 
     /**Check for changes in the edit-panel.  
      * Waze Left Side Edit Panel used for editing `Segments` and other types of `SDK > DataModelObject`
@@ -319,8 +319,8 @@ function autoLockClick (times){
     }else {
        let levelTo = String(wmeStsTo-1);
        /**@type {string} JQuery selector for clicking the desired level.*/
-       let wmeLockLvl
-       wmeStsTo>=1 ? wmeLockLvl='#lockRank-' + levelTo : wmeLockLvl='.lock-level-selector > wz-checkable-chip:nth-child(1)';
+       let wmeLockLvl;
+       (wmeStsTo >= 1) ? (wmeLockLvl = '#lockRank-' + levelTo) : (wmeLockLvl = '.lock-level-selector > wz-checkable-chip:nth-child(1)');
        log("Click on " + wmeLockLvl);
        //document.querySelector("#segment-edit-general > form > div.lock-edit")
        if (!$(wmeLockLvl).length) {
@@ -330,7 +330,6 @@ function autoLockClick (times){
        $(wmeLockLvl).trigger("click");
        WazeWrap.Alerts.info(SCRIPT_NAME, "🔐")
     }
-    return;
 }
 
 /**Gets the browser language and load translations into. Also sets `localstorage` for language advice (`WMESTSlangalert`).
@@ -344,7 +343,7 @@ async function localization () {
      * {@link I18n.locale Browser Locale}
      * @see {@link https://docs.google.com/spreadsheets/d/1kW09NbMJUYU0nNRYUmwsoushZo7I-oQShCfr8hnr_hs/edit?usp=sharing WMESTS Localizations Spreadsheet}
     */
-    var sheetName = sheetsAPI.sheetName
+    let sheetName = sheetsAPI.sheetName;
     /**
      * Brings the strings translations from Google Sheets v4 API
      * @param {string} i18n {@link I18n} locale as the browser locale
@@ -353,7 +352,7 @@ async function localization () {
     async function requestTranslations (i18n) {
         const CONNECT_ONE = sheetsAPI.link + sheetsAPI.sheet + "/values/"
         const CONNECT_TWO = "!" + sheetsAPI.range + "?key=" + sheetsAPI.key
-        var statusSheetsCallback = false
+        let statusSheetsCallback = false;
         await $.get(CONNECT_ONE + i18n + CONNECT_TWO)//TODO: Use Fetch...
             .then( function(data) {
                 $.each( data.values, function( key, val ) {
@@ -384,7 +383,7 @@ async function localization () {
         if (suppLngs.includes(wmeSDK_STS.Settings.getLocale().localeCode)) {
             sheetName = wmeSDK_STS.Settings.getLocale().localeCode
             try {
-                const waiting = await requestTranslations(sheetName)//Modify and ask for local storage before call the request
+                await requestTranslations(sheetName)//Modify and ask for local storage before call the request
             } catch (e) {
                 log("Error while calling 'requestTranslations' function");
             }
@@ -397,7 +396,7 @@ async function localization () {
             }
             log("Loading default locale")
             try {
-                const waiting = await requestTranslations(sheetName)
+                await requestTranslations(sheetName)
             } catch (e) {
                 log("Error while calling 'requestTranslations' function");
             }
@@ -405,7 +404,7 @@ async function localization () {
     }else{//Loads default language because no translation is required
         log("Loading default locale")
         try {
-            const waiting = await requestTranslations(sheetName)
+            await requestTranslations(sheetName)
         } catch (e) {
             log("Error while calling 'requestTranslations' function");
         }
@@ -421,7 +420,7 @@ async function localization () {
  * @see DataModelObject SDK class.
  */
 function getCityID(selection, Type) {//TODO: SDK
-    var StreetID = 0;
+    let StreetID = 0;
     if(Type != "segment")
     {
         StreetID = selection.attributes.streetID;
@@ -503,9 +502,10 @@ function getState(CityId) {
  * @returns {string} Reason
  */
 function AskReason() {
-    var x=0;
+    let x=0;
+    let Reason = "";
     while(x<1) {
-        var Reason = prompt(translationsInfo[1][0] + " : ");//"Reason : "
+        Reason = prompt(translationsInfo[1][0] + " : ");//"Reason : "
         if(Reason == "") {
             alert(translationsInfo[2][0] + ' ');//"You need to complete the reason "
             Reason=null;
@@ -624,7 +624,7 @@ function construct(iconAction) {
                 log("Editor Level checked, ask.")
                 reason = AskReason();
             }
-            (details !== null && !permalink.includes("wmeststo") && iconAction !== "Validation") ? permalink = permalink + "&wmeststo="+String(wmeSDK_STS.State.getUserInfo()?.rank+1):undefined;
+            permalink = (details !== null && !permalink.includes("wmeststo") && iconAction !== "Validation") ? (permalink + "&wmeststo=" + String(wmeSDK_STS.State.getUserInfo()?.rank+1)) : undefined;
             if (reason !== null) {
                 if (reason) {
                     telegramReason = "*" + translationsInfo[1][0] + " :* " + reason; //"Reason"
@@ -707,34 +707,34 @@ ${closureTelegramDetails}${telegramDetails}`;
     TextToSendDiscord = TextToSendDiscord.replace('\r\n\r\n','\r\n') + "\r\n\r\npowered by [" + [SCRIPT_NAME, SCRIPT_VERSION].join(" ") +"](https://wmests.bowlman.org)";//TODO: This can be corrected through `${JS}`?
     // Get the webhooks
 
-    var promise; //TODO: Check declaration level even maybe it's a let rather than a var check
+    let promise;
 
     if(reason !== 'Cancelled' && channel !== "" && abort === false) {
-        for (var key in serverDB[localStorage.getItem('WMESTSServer')]) {
+        for (let key in serverDB[localStorage.getItem('WMESTSServer')]) {
             log('Chanel : ' + channel);
-            var actionicon = "";
-            log(iconAction)
+            let actionicon = "";
+            log(iconAction);
             switch (iconAction.toLowerCase()) {//For GForms purposes only...
                 case "closure":
-                    actionicon = "road_closed"
+                    actionicon = "road_closed";
                     break;
                 case "open":
-                    actionicon = "open_closure"
+                    actionicon = "open_closure";
                     break;
                 case "lock":
-                    actionicon = "lock"
+                    actionicon = "lock";
                     break;
                 case "downlock":
-                    actionicon = "unlock"
+                    actionicon = "unlock";
                     break;
                 case "validation":
-                    actionicon = "heavy_check_mark"
+                    actionicon = "heavy_check_mark";
                     break;
                 default:
-                    actionicon = "pencil2"
+                    actionicon = "pencil2";
             }
             switch (key.toLowerCase()) {
-                case "slack":
+                case "slack": {
                     $.ajax({
                         data: 'payload=' + JSON.stringify({
                             "text": TextToSend,
@@ -753,7 +753,8 @@ ${closureTelegramDetails}${telegramDetails}`;
                     log(TextToSend);
                     sent=sent+1;
                     break;
-                case "discord":
+                }
+                case "discord": {
                     let channelType = /**@type {("Text"|"Forum"|null)} */(localStorage.getItem('WMESTSChannelType'));
                     if (!channelType) {
                         channelType = "Text"; // First guess: text channel
@@ -789,10 +790,11 @@ ${closureTelegramDetails}${telegramDetails}`;
 
                     log(TextToSendDiscord);
                     break;
-                case "gform"://TODO: Also maybe lets rather than vars
-                    var currentlocation = (new OpenLayers.LonLat(wmeSDK_STS.Map.getMapCenter().lon,wmeSDK_STS.Map.getMapCenter().lat)).toString().replace('lon=','').replace("lat=","");
-                    var GFormDBloc = gFormDB[localStorage.getItem('WMESTSServer')];
-                    var datas = {};
+                    }
+                case "gform": {
+                    const currentlocation = (new OpenLayers.LonLat(wmeSDK_STS.Map.getMapCenter().lon,wmeSDK_STS.Map.getMapCenter().lat)).toString().replace('lon=','').replace("lat=","");
+                    const GFormDBloc = gFormDB[localStorage.getItem('WMESTSServer')];
+                    let datas = {};
                     datas[GFormDBloc.pl]=unescape(permalink);
                     datas[GFormDBloc.username]=wmeSDK_STS.State.getUserInfo()?.userName;
                     datas[GFormDBloc.editorlevel]=wmeSDK_STS.State.getUserInfo()?.rank+1;
@@ -817,8 +819,9 @@ ${closureTelegramDetails}${telegramDetails}`;
                     });
                     sent=sent+1;
                     break;
-                case "telegram"://TODO:Also check for lets... rather than vars.
-                    var dataTelegram = {
+                }
+                case "telegram": {
+                    let dataTelegram = {
                         chat_id: serverDB[localStorage.getItem('WMESTSServer')][key]['chat_id'],
                         text: TexToSendTelegramMD,
                         parse_mode: "Markdown",
@@ -836,6 +839,7 @@ ${closureTelegramDetails}${telegramDetails}`;
                     log("Telegram request processed")
                     sent=sent+1
                     break;
+                }
                 default:
             }
         }
@@ -843,10 +847,8 @@ ${closureTelegramDetails}${telegramDetails}`;
     Promise.all([promise]).then(values => {
         if (sent > 0) {
             WazeWrap.Alerts.success(SCRIPT_NAME, translationsInfo[15][0]);//"Request Sent"
-            return;
         } else {
             WazeWrap.Alerts.error(SCRIPT_NAME, translationsInfo[16][0]);//'Nothing sent'
-            return;
         }
     });
 }
@@ -873,18 +875,18 @@ function Loadactions() {
  */
 function getShouldLockedAt(selection, current){
     /**@type {number} */
-    var ShouldBeLockedAt = current;
+    let ShouldBeLockedAt = current;
     //var max_level = 0;
     //var seg_rank = 0;
-    var WMESTSCountry = countryDB[localStorage.getItem('WMESTSCountry')]
-    var CountryLockLevel = [];//TODO: Positional 0 empty???
+    let WMESTSCountry = countryDB[localStorage.getItem('WMESTSCountry')]
+    let CountryLockLevel = [];//TODO: Positional 0 empty???
     CountryLockLevel[1] = WMESTSCountry.str_lvl;
     CountryLockLevel[2] = WMESTSCountry.pri_lvl;
     CountryLockLevel[3] = WMESTSCountry.fwy_lvl;
     CountryLockLevel[4] = WMESTSCountry.rmp_lvl;
     CountryLockLevel[6] = WMESTSCountry.maj_lvl;
     CountryLockLevel[7] = WMESTSCountry.min_lvl;
-    var RoadType = selection.attributes.roadType;
+    let RoadType = selection.attributes.roadType;
     if(CountryLockLevel[RoadType]) {
         if(CountryLockLevel[RoadType]>ShouldBeLockedAt) {
             ShouldBeLockedAt = CountryLockLevel[RoadType];
@@ -902,7 +904,7 @@ function UpdateLanguages() {
     $('#WMESTSLanguage option').each(function() {
         $(this).remove();
     });
-    var OptionLanguage = document.createElement('option');
+    let OptionLanguage = document.createElement('option');
     OptionLanguage.text = "------";
     if(!languageDB[localStorage.getItem('WMESTSState')]) {//Country Not Applicable.
         OptionLanguage.text = "Default";
@@ -912,8 +914,8 @@ function UpdateLanguages() {
         localStorage.setItem('WMESTSServer',localStorage.getItem('WMESTSState') + "_en");
         OptionLanguage.selected=true;
     }
-    var languageselected = languageDB[localStorage.getItem('WMESTSState')];
-    for (var key in languageselected){
+    let languageselected = languageDB[localStorage.getItem('WMESTSState')];
+    for (let key in languageselected){
         OptionLanguage = document.createElement('option');
         OptionLanguage.text=languageselected[key];
         OptionLanguage.value=localStorage.getItem('WMESTSState') + '_' + key;
@@ -932,7 +934,7 @@ function UpdateStates() {
     $('#WMESTSState option').each(function() {
         $(this).remove();
     });
-    var OptionState = document.createElement('option');//TODO: Lets rather than vars?
+    let OptionState = document.createElement('option');//TODO: Lets rather than vars?
     OptionState.text = translationsInfo[18][0];
     if(stateDB[localStorage.getItem('WMESTSCountry')]) {
         OptionState.text = "------"
@@ -940,8 +942,8 @@ function UpdateStates() {
     }
     OptionState.id = localStorage.getItem('WMESTSCountry') + "ns";
     $('#WMESTSState').append(OptionState)
-    var Stateselected = stateDB[localStorage.getItem('WMESTSCountry')];
-    for (var key in Stateselected){
+    let Stateselected = stateDB[localStorage.getItem('WMESTSCountry')];
+    for (let key in Stateselected){
         OptionState = document.createElement('option');
         OptionState.text=Stateselected[key];
         OptionState.value=localStorage.getItem('WMESTSCountry') + key;
@@ -967,12 +969,12 @@ function LoadTab(){
     document.getElementById("state-tag-sts").innerText = translationsInfo[20][0]
     document.getElementById("channel-tag-sts").innerText = translationsInfo[21][0]
     if(!('WMESTSCountry' in localStorage)) {
-        var OptionCountry = document.createElement('option');
+        let OptionCountry = document.createElement('option');
         OptionCountry.text="------";
         COUNTRY_SELECTOR.appendChild(OptionCountry);
     }
-    for (var key in countryDB){
-        OptionCountry = document.createElement('option');
+    for (let key in countryDB){
+        let OptionCountry = document.createElement('option');
         OptionCountry.text=countryDB[key].name;
         OptionCountry.value=key;
         if(('WMESTSCountry' in localStorage) && localStorage.getItem('WMESTSCountry') === key) {
@@ -982,10 +984,10 @@ function LoadTab(){
     }
     let OptionState = document.createElement('option');
     OptionState.text = "------";
-    STATE_SELECTOR.appendChild(OptionState)
+    STATE_SELECTOR.appendChild(OptionState);
 
     if(!('WMESTSServer' in localStorage)) {
-        var OptionLanguage = document.createElement('option');
+        let OptionLanguage = document.createElement('option');
         OptionLanguage.text = "------";
         CHANNEL_SELECTOR.appendChild(OptionLanguage)
     }
@@ -1022,7 +1024,6 @@ function LoadTab(){
         localStorage.setItem('WMESTSServer', this.value);
     });
     UpdateStates();
-    return;
 }
 
 /**
@@ -1139,7 +1140,6 @@ function getPermalinkCleaned(iconaction) {
         }
     }else if (iconaction === "Validation") { // Validation request
         const suggestionID = getEditSuggestionID();
-        const suggestion = getEditSuggestionByID(suggestionID);
         const segmentsIDs = uniquifyArray(getSegmentIDsBySuggestionID(suggestionID));
         selectionType = "&segments=";
         selectedIndex = segmentsIDs.join(',');
@@ -1300,7 +1300,6 @@ function sendToDiscord(params, first, fallback) {
                           case 220003: // missing thread_name used in forum channel
                               log("Request failed sending to " + channelType + " channel" + ((fallback) ? "; now trying " + fallback + " channel" : ""));
                               return sendToDiscord(params, fallback, "");
-                              break;
                           case undefined:
                               log("Unsupported request - Response: " + JSON.stringify(err.request.response));
                               localStorage.setItem('WMESTSChannelType', "");
@@ -1326,7 +1325,6 @@ function addLockIcons() {
     $(".Lock").attr("title", translationsInfo[40][0]);
     $(".Downlock").attr("title", translationsInfo[41][0]);
     log('Lock icons added');
-    return;
 }
 /**
 * Create the {@link CLOSURE_ICON} and {@link OPEN_ICON} into the `closures-list` class.
@@ -1340,7 +1338,6 @@ function addClosureIcons() {
     $(".Closure").attr("title", translationsInfo[42][0]);
     $(".Open").attr("title", translationsInfo[43][0]);
     log('Closure icons added');
-    return;
 }
 /**
  * Create the {@link VALIDATION_ICON} into the suggestion panel.  
@@ -1363,7 +1360,7 @@ function addValidationIcon() {
         const newDiv = document.createElement("div");
         newDiv.id = "WMESTSvalidation";
         newDiv.style.margin = "auto 10px";
-        newDiv.innerHTML = VALIDATION_ICON.replace(/title\=\".+?\"/, 'title="' + translationsInfo[44][0] +'"');
+        newDiv.innerHTML = VALIDATION_ICON.replace(/title=".+?"/, 'title="' + translationsInfo[44][0] +'"');
         elem.appendChild(newDiv);
         Loadactions();
         log('Validation icon added');
@@ -1408,7 +1405,6 @@ function addUpdateRequestIcons() {
     let UR = document.querySelector('.mapUpdateRequest .additional-attributes')
     UR.insertAdjacentHTML("afterend",iconsDIV)
     log("UR ICONS ADDED...")
-    return;
 }
 
 /**
