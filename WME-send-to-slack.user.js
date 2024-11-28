@@ -685,7 +685,7 @@ function construct(iconAction) {
     log("Country : " + countryName);
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     details = details.replace(urlRegex, function(url) {
-        return escape(url);//TODO:Replace deprecated escape()
+        return encodeURI(url);
     });
     log(details);
     if (permalink.indexOf("-100") >= 0 ) {
@@ -696,8 +696,8 @@ function construct(iconAction) {
     const USER_NAME_WME = wmeSDK_STS.State.getUserInfo()?.userName ?? "ERROR";
     const FULL_PROFILE_URL_WME = wmeSDK_STS.DataModel.Users.getUserProfileLink({userName: USER_NAME_WME})
     const USER_RANK_WME = wmeSDK_STS.State.getUserInfo()?.rank+1;
-    let TextToSend = ':' + translationsInfo[11][0] + requiredLevel + ": " + translationsInfo[10][0] + " : <" + escape(FULL_PROFILE_URL_WME) + "|" + USER_NAME_WME + "> (*" + translationsInfo[11][0] + USER_RANK_WME + "*)\r\n" + translationsInfo[12][0] + " : <" + escape(permalink) + "|" + textSelection + ">\r\n" + translationsInfo[13][0] + " : " + iconActionLocale + "\r\n" + translationsInfo[14][0] + " : " + cityName + separatorCity + stateName + separatorState + countryName + details;
-    let TextToSendDiscord = translationsInfo[10][0] + " : [" + USER_NAME_WME + "](" + encodeURI(FULL_PROFILE_URL_WME) + ") (" + translationsInfo[11][0] + USER_RANK_WME + ")\r\n" + translationsInfo[12][0] + " : [" + textSelection + "](" + encodeURI(permalink) + ")" + "\r\n" + translationsInfo[13][0] + " : " + iconActionLocale + "\r\n" + translationsInfo[14][0] + " : " + cityName + separatorCity + stateName + separatorState + countryName + details;//TODO: Replace deprecated escape.
+    let TextToSend = ':' + translationsInfo[11][0] + requiredLevel + ": " + translationsInfo[10][0] + " : <" + encodeURI(FULL_PROFILE_URL_WME) + "|" + USER_NAME_WME + "> (*" + translationsInfo[11][0] + USER_RANK_WME + "*)\r\n" + translationsInfo[12][0] + " : <" + encodeURI(permalink) + "|" + textSelection + ">\r\n" + translationsInfo[13][0] + " : " + iconActionLocale + "\r\n" + translationsInfo[14][0] + " : " + cityName + separatorCity + stateName + separatorState + countryName + details;
+    let TextToSendDiscord = translationsInfo[10][0] + " : [" + USER_NAME_WME + "](" + encodeURI(FULL_PROFILE_URL_WME) + ") (" + translationsInfo[11][0] + USER_RANK_WME + ")\r\n" + translationsInfo[12][0] + " : [" + textSelection + "](" + encodeURI(permalink) + ")" + "\r\n" + translationsInfo[13][0] + " : " + iconActionLocale + "\r\n" + translationsInfo[14][0] + " : " + cityName + separatorCity + stateName + separatorState + countryName + details;
     const TexToSendTelegramMD = `${translationsInfo[11][0]}${requiredLevel} *${translationsInfo[10][0]}:* [${USER_NAME_WME}](www.waze.com/user/editor/${USER_NAME_WME}) (*${USER_RANK_WME}*)
 *${translationsInfo[12][0]} :* [${textSelection}](${permalink})
 *${translationsInfo[13][0]} :* ${iconActionLocale}
@@ -795,7 +795,7 @@ ${closureTelegramDetails}${telegramDetails}`;
                     const currentlocation = (new OpenLayers.LonLat(wmeSDK_STS.Map.getMapCenter().lon,wmeSDK_STS.Map.getMapCenter().lat)).toString().replace('lon=','').replace("lat=","");
                     const GFormDBloc = gFormDB[localStorage.getItem('WMESTSServer')];
                     let datas = {};
-                    datas[GFormDBloc.pl]=unescape(permalink);
+                    datas[GFormDBloc.pl]=decodeURI(permalink);
                     datas[GFormDBloc.username]=wmeSDK_STS.State.getUserInfo()?.userName;
                     datas[GFormDBloc.editorlevel]=wmeSDK_STS.State.getUserInfo()?.rank+1;
                     datas[GFormDBloc.levelrequired]=requiredLevel.toString().replace(/:/g,'').replace('l','');
