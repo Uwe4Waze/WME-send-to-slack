@@ -178,7 +178,7 @@ function init() {
     log("WazeWrap used for alerts it's still loading so we'll wait");
     return;
     }
-    (!GM_info.scriptWillUpdate || !GM_info.script.options.check_for_updates) ? WazeWrap.Alerts.error(SCRIPT_NAME, 'Check your TM settings... Unable to check for script updates') : undefined;
+    (!GM_info.scriptWillUpdate || !GM_info.script.options.check_for_updates) ? WazeWrap.Alerts.error(SCRIPT_NAME, 'Check your TM settings... Unable to check for script updates') : noop();
     //Settings Tab
     wmeSDK_STS.Sidebar.registerScriptTab()
         .then((RegisterSidebarTabResult)=>{
@@ -203,7 +203,7 @@ function init() {
         }
         LoadTab();
     });
-    (wmeStsTo !== null) ? autoLockClick() : undefined; //Check if it's a PL open
+    (wmeStsTo !== null) ? autoLockClick() : noop(); //Check if it's a PL open
 
     /**Check for changes in the edit-panel.  
      * Waze Left Side Edit Panel used for editing `Segments` and other types of `SDK > DataModelObject`
@@ -316,12 +316,11 @@ function autoLockClick (times){
         times++
         setTimeout(autoLockClick, 800, times);
         log("Unable to get Lock Ranks or Tab is still loading so we'll wait");
-        return;
     }else {
        let levelTo = String(wmeStsTo-1);
        /**@type {string} JQuery selector for clicking the desired level.*/
        let wmeLockLvl;
-       (wmeStsTo >= 1) ? (wmeLockLvl = '#lockRank-' + levelTo) : (wmeLockLvl = '.lock-level-selector > wz-checkable-chip:nth-child(1)');
+       wmeLockLvl = (wmeStsTo >= 1) ? (wmeLockLvl = '#lockRank-' + levelTo) : (wmeLockLvl = '.lock-level-selector > wz-checkable-chip:nth-child(1)');
        log("Click on " + wmeLockLvl);
        //document.querySelector("#segment-edit-general > form > div.lock-edit")
        if (!$(wmeLockLvl).length) {
@@ -935,7 +934,7 @@ function UpdateStates() {
     $('#WMESTSState option').each(function() {
         $(this).remove();
     });
-    let OptionState = document.createElement('option');//TODO: Lets rather than vars?
+    let OptionState = document.createElement('option');
     OptionState.text = translationsInfo[18][0];
     if(stateDB[localStorage.getItem('WMESTSCountry')]) {
         OptionState.text = "------"
@@ -1545,3 +1544,8 @@ try{
     alert(`${SCRIPT_NAME}: ULTRA FATAL ERROR`)
     throw new Error(`${SCRIPT_NAME}: ULTRA FATAL ERROR - WINDOW SDK_INITIALIZED IT'S NOT DEFINED.`)
 }
+
+/**
+ * Function doing nothing. Used with ternary operator
+ */
+const noop = ()=>{};
