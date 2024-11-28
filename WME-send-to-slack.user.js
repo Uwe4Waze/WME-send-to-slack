@@ -320,7 +320,7 @@ function autoLockClick (times){
        let levelTo = String(wmeStsTo-1);
        /**@type {string} JQuery selector for clicking the desired level.*/
        let wmeLockLvl;
-       wmeLockLvl = (wmeStsTo >= 1) ? (wmeLockLvl = '#lockRank-' + levelTo) : (wmeLockLvl = '.lock-level-selector > wz-checkable-chip:nth-child(1)');
+       wmeLockLvl = (wmeStsTo >= 1) ? ('#lockRank-' + levelTo) : ('.lock-level-selector > wz-checkable-chip:nth-child(1)');
        log("Click on " + wmeLockLvl);
        //document.querySelector("#segment-edit-general > form > div.lock-edit")
        if (!$(wmeLockLvl).length) {
@@ -488,7 +488,7 @@ function getState(CityId) {
         if(State===null)
         {
             return false;
-        }
+    }
         else
         {
             return State;
