@@ -476,26 +476,17 @@ function getCountry(CityId) {
  * Gets the `State` name with the `CityID`.  
  * Till version `2024.10.20.01` being called from {@link getPermalinkCleaned()}
  * @param {number} CityId `City ID` or `0`
+ * @returns {string} // StateName or empty string
  */
 function getState(CityId) {
     let StateID;
-    let State;
+    let StateName = "";
     if(wmeSDK_STS.DataModel.Cities.getById({cityId:CityId}))
     {
-        StateID = W.model.cities.getObjectById(CityId).attributes.stateID;//WMESDK NOT SUPPORTED... FEATURE REQUEST OPENED.
-        //State = W.model.states.getObjectById(StateID).attributes.name;
-        State = wmeSDK_STS.DataModel.States.getTopState()?.name ?? null // Not sure if this works as previously, if so, no StateID it's required.
-        if(State===null)
-        {
-            return false;
+        StateID = wmeSDK_STS.DataModel.Cities.getById({cityId:CityId})?.stateId;
+        StateName = wmeSDK_STS.DataModel.States.getById({stateId: StateID})?.name ?? "";
     }
-        else
-        {
-            return State;
-        }
-    } else {
-        return false;
-    }
+    return StateName;
 }
 /** Asks for a reason while constructing a request until a reason is entered or prompt is cancelled.
  * Till version `2024.10.20.01` being called from {@link construct()}
@@ -1129,10 +1120,6 @@ function getPermalinkCleaned(iconaction) {
             countryName = getCountry(cityId);
             stateName = getState(cityId);
             log("State Name : " + stateName);
-            if (stateName === false) {
-                stateName = "";
-                log("State Name : emptyied" + stateName);
-            }
         });
         if (shouldBeLockedAt === -5) {
             shouldBeLockedAt = NaN;
