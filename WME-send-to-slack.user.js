@@ -478,7 +478,7 @@ function getCountry(CityId) {
  * @param {number} CityId `City ID` or `0`
  * @returns {string} // StateName or empty string
  */
-function getState(CityId) {
+function getStateName(CityId) {
     let StateID;
     let StateName = "";
     if(wmeSDK_STS.DataModel.Cities.getById({cityId:CityId}))
@@ -1118,7 +1118,7 @@ function getPermalinkCleaned(iconaction) {
                 cityName = "";
             }
             countryName = getCountry(cityId);
-            stateName = getState(cityId);
+            stateName = getStateName(cityId);
             log("State Name : " + stateName);
         });
         if (shouldBeLockedAt === -5) {
