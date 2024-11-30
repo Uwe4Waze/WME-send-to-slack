@@ -99,7 +99,7 @@ let translationsInfo = [];
  * @type {URLSearchParams} Web API Object "The URLSearchParams interface defines utility methods to work with the query string of a URL."
  */
 let wmeGETparams = new URLSearchParams(document.location.search.substring(1));
-/** 
+/**
  * User required level for Lock/Unlock a WME object. This must be from `-1` to `6`. Used for {@link autoLockClick()} purposes and called from {@link init()}. Global var WMESTS @type {?number}.
  * @satisfies {(-1|0|1|2|3|4|5|6)}
 */
@@ -860,7 +860,7 @@ function Loadactions() {
 /**
  * Recommended Lock. Gets the previously defined by the community lock level for the segment `roadType`.  
  * Till version `2024.10.20.01` being called from {@link getPermalinkCleaned()}
- * @param {W.DataModelObject} selection 
+ * @param {W.DataModelObject} selection
  * @param {number} current Always it's `-5` (for some reason...)
  * @returns {number} `ShouldBeLockedAt` as stated in the `RoadType` segment.
  */
@@ -1375,7 +1375,7 @@ function addUpdateRequestIcons() {
 
 /**
  * Gets the WMESTS clicked button by ID `WMESTSActionButton` and stablishes which `class` selector is it for construct.
- * @param {Event} e 
+ * @param {Event} e
  */
 function iconActionHandler(e) {
     let target = e.target;
