@@ -362,9 +362,11 @@ async function localization () {
         }
     };
 }
+
 /**
- * 
- * @param {string} i18n 
+ * Brings the strings translations from Google Sheets v4 API
+ * @param {string} i18n {@link I18n} locale as the browser locale
+ * @async
  */
 async function requestTranslations(i18n) {
     const CONNECT_ONE = sheetsAPI.link + sheetsAPI.sheet + "/values/";
@@ -372,7 +374,6 @@ async function requestTranslations(i18n) {
     let statusSheetsCallback = false;
     await $.get(CONNECT_ONE + i18n + CONNECT_TWO)//TODO: Use Fetch...
         .then(function ({majorDimensions, range, values}) {
-            console.log('data: ', values);
             log(`${values.length} rows were fetched from sheet`);
             for (let i = 0; i <= values.length; i++) {
                 const val = values[i];
