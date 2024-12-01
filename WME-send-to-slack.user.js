@@ -338,18 +338,19 @@ function autoLockClick (times){
  * @author GitHub: ordonezgs
  * @async
 */
-async function localization () {
+
+//async function localization () {
     /** Localization Spreadsheet SheetName as same as the
      * {@link I18n.locale Browser Locale}
      * @see {@link https://docs.google.com/spreadsheets/d/1kW09NbMJUYU0nNRYUmwsoushZo7I-oQShCfr8hnr_hs/edit?usp=sharing WMESTS Localizations Spreadsheet}
     */
-    let sheetName = sheetsAPI.sheetName;
+//    let sheetName = sheetsAPI.sheetName;
     /**
      * Brings the strings translations from Google Sheets v4 API
      * @param {string} i18n {@link I18n} locale as the browser locale
      * @async
      */
-    async function requestTranslations (i18n) {
+/*    async function requestTranslations (i18n) {
         const CONNECT_ONE = sheetsAPI.link + sheetsAPI.sheet + "/values/";
         const CONNECT_TWO = "!" + sheetsAPI.range + "?key=" + sheetsAPI.key;
         let statusSheetsCallback = false;
@@ -410,6 +411,66 @@ async function localization () {
         }
     }
     log("Localization function correctly loaded");
+}
+*/
+async function localization () {
+    /** Localization Spreadsheet SheetName as same as the
+     * {@link I18n.locale Browser Locale}
+     * @see {@link https://docs.google.com/spreadsheets/d/1kW09NbMJUYU0nNRYUmwsoushZo7I-oQShCfr8hnr_hs/edit?usp=sharing WMESTS Localizations Spreadsheet}
+    */
+    let sheetName = sheetsAPI.sheetName; // on init: name of default sheet
+    try {
+        await requestTranslations(sheetName);
+    } catch (e) {
+        log("Error while calling 'requestTranslations' function");
+    }
+    //Checking if require translations different from any english language
+    if (!(["en-US", "en-AU", "en-GB"].includes(wmeSDK_STS.Settings.getLocale().localeCode)) && wmeSDK_STS.Settings.getLocale().localeCode != I18n.defaultLocale) {
+        //Checking if the language is available for display
+        if (suppLngs.includes(wmeSDK_STS.Settings.getLocale().localeCode)) {
+            sheetName = wmeSDK_STS.Settings.getLocale().localeCode;
+            try {
+                requestTranslations(sheetName); //Modify and ask for local storage before call the request
+            } catch (e) {
+                log("Error while calling 'requestTranslations' function");
+            }
+        }
+    };
+}
+/**
+ * 
+ * @param {string} i18n 
+ */
+async function requestTranslations(i18n) {
+    const CONNECT_ONE = sheetsAPI.link + sheetsAPI.sheet + "/values/";
+    const CONNECT_TWO = "!" + sheetsAPI.range + "?key=" + sheetsAPI.key;
+    let statusSheetsCallback = false;
+    await $.get(CONNECT_ONE + i18n + CONNECT_TWO)//TODO: Use Fetch...
+        .then(function ({majorDimensions, range, values}) {
+            console.log('data: ', values);
+            log(`${values.length} rows were fetched from sheet`);
+            for (let i = 0; i <= values.length; i++) {
+                const val = values[i];
+                if (!(Array.isArray(val) && val.length)) {
+                    noop();
+                } else {
+                    translationsInfo[i] = val;
+                }
+            }
+            statusSheetsCallback = true;
+            log("$.get succeeded");
+        })
+        .catch(() => {
+            log("$.get failed!");
+        });
+    if (statusSheetsCallback) {
+        log('Connected to Google Sheets API');
+    } else if (!statusSheetsCallback) {
+        WazeWrap.Alerts.error(SCRIPT_NAME, 'Cannot connect to Google Sheets API');
+    }
+
+
+    //Closing async f(x)
 }
 
 /**
