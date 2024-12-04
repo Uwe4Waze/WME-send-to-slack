@@ -372,31 +372,22 @@ async function requestTranslations(i18n) {
     const CONNECT_ONE = sheetsAPI.link + sheetsAPI.sheet + "/values/";
     const CONNECT_TWO = "!" + sheetsAPI.range + "?key=" + sheetsAPI.key;
     let statusSheetsCallback = false;
-    await $.get(CONNECT_ONE + i18n + CONNECT_TWO)//TODO: Use Fetch...
-        .then(function ({majorDimensions, range, values}) {
-            log(`${values.length} rows were fetched from sheet`);
-            for (let i = 0; i <= values.length; i++) {
-                const val = values[i];
-                if (!(Array.isArray(val) && val.length)) {
-                    noop();
-                } else {
-                    translationsInfo[i] = val;
-                }
-            }
-            statusSheetsCallback = true;
-            log("$.get succeeded");
-        })
-        .catch(() => {
-            log("$.get failed!");
-        });
-    if (statusSheetsCallback) {
-        log('Connected to Google Sheets API');
-    } else if (!statusSheetsCallback) {
+    log('Fetch translations for ' + ((i18n == 'Default') ? 'default language' : 'locale: ' + i18n));
+    const request = new Request(CONNECT_ONE + i18n + CONNECT_TWO);
+    const response = await fetch(request);
+    if (!response.ok) {
         WazeWrap.Alerts.error(SCRIPT_NAME, 'Cannot connect to Google Sheets API');
     }
-
-
-    //Closing async f(x)
+    const {values} = await response.json();
+    log(`${values.length} rows were fetched from sheet`);
+    for (let i = 0; i <= values.length; i++) {
+        const val = values[i];
+        if (!(Array.isArray(val) && val.length)) {
+            noop();
+        } else {
+            translationsInfo[i] = val;
+        }
+    }
 }
 
 /**
