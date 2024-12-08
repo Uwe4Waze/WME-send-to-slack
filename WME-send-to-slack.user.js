@@ -361,19 +361,20 @@ async function localization () {
             }
         }
     };
+    log("Localization function correctly loaded");
 }
 
 /**
  * Brings the strings translations from Google Sheets v4 API
- * @param {string} i18n {@link I18n} locale as the browser locale
+ * @param {string} locale {@link I18n} locale as the browser locale
  * @async
  */
-async function requestTranslations(i18n) {
+async function requestTranslations(locale) {
     const CONNECT_ONE = sheetsAPI.link + sheetsAPI.sheet + "/values/";
     const CONNECT_TWO = "!" + sheetsAPI.range + "?key=" + sheetsAPI.key;
     let statusSheetsCallback = false;
-    log('Fetch translations for ' + ((i18n == 'Default') ? 'default language' : 'locale: ' + i18n));
-    const request = new Request(CONNECT_ONE + i18n + CONNECT_TWO);
+    log('Fetch translations for ' + ((locale == 'Default') ? 'default language' : 'locale: ' + locale));
+    const request = new Request(CONNECT_ONE + locale + CONNECT_TWO);
     const response = await fetch(request);
     if (!response.ok) {
         WazeWrap.Alerts.error(SCRIPT_NAME, 'Cannot connect to Google Sheets API');
