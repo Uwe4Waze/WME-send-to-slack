@@ -84,6 +84,17 @@ let wmeSDK_STS;
 /**Parameters passed to {@link window.getWmeSdk()} @type {object} @constant*/
 const WMESTS_SDKPARAMS = Object.freeze({scriptId: SCRIPT_ID, scriptName: SCRIPT_NAME});
 /**
+ * Variable to pick up the value of the current locale for requests.  
+ * This depends on the script settings
+ * @type {string}
+ */
+let displayLocale = '';
+/**
+ * Variable to pick up the value of the current WME locale
+ * @type {string}
+ */
+let requestLocale = 'Default';
+/**
  * This var evals if the {@link Loadactions()} function has been previously called.
  * @type {number}  If so, value changes to 1. This it's Global var WMESTS.
  * @default 0
@@ -94,6 +105,12 @@ let actionsloaded = 0;
  * @type {Array[]} Global var WMESTS.
  */
 let translationsInfo = [];
+/**
+ * This map contains all the used and localized displayable text of the script and is used by {@link translate} function.  
+ * Some error messages (critical ones or less important ones) are not included since they doesn't need to be localized.
+ * @type {Map} Global const WMESTS.
+ */
+const translationsMap = new Map();
 /**
  * Obtains the WME URL parameters after the "?" sign.
  * @type {URLSearchParams} Web API Object "The URLSearchParams interface defines utility methods to work with the query string of a URL."
@@ -343,6 +360,7 @@ async function localization () {
      * {@link I18n.locale Browser Locale}
      * @see {@link https://docs.google.com/spreadsheets/d/1kW09NbMJUYU0nNRYUmwsoushZo7I-oQShCfr8hnr_hs/edit?usp=sharing WMESTS Localizations Spreadsheet}
     */
+    displayLocale = wmeSDK_STS.Settings.getLocale().localeCode;
     let sheetName = sheetsAPI.sheetName; // on init: name of default sheet
     try {
         await requestTranslations(sheetName);
@@ -350,17 +368,17 @@ async function localization () {
         log("Error while calling 'requestTranslations' function");
     }
     //Checking if require translations different from any english language
-    if (!(["en-US", "en-AU", "en-GB"].includes(wmeSDK_STS.Settings.getLocale().localeCode)) && wmeSDK_STS.Settings.getLocale().localeCode != I18n.defaultLocale) {
+    if (!(["en-US", "en-AU", "en-GB"].includes(displayLocale)) && displayLocale != I18n.defaultLocale) {
         //Checking if the language is available for display
-        if (suppLngs.includes(wmeSDK_STS.Settings.getLocale().localeCode)) {
-            sheetName = wmeSDK_STS.Settings.getLocale().localeCode;
+        if (suppLngs.includes(displayLocale)) {
+            sheetName = displayLocale;
             try {
                 await requestTranslations(sheetName); //Modify and ask for local storage before call the request
             } catch (e) {
                 log("Error while calling 'requestTranslations' function");
             }
         }
-    };
+    }
     log("Localization function correctly loaded");
 }
 
@@ -370,10 +388,9 @@ async function localization () {
  * @async
  */
 async function requestTranslations(locale) {
-    const CONNECT_ONE = sheetsAPI.link + sheetsAPI.sheet + "/values/";
-    const CONNECT_TWO = "!" + sheetsAPI.range + "?key=" + sheetsAPI.key;
-    let statusSheetsCallback = false;
-    log('Fetch translations for ' + ((locale == 'Default') ? 'default language' : 'locale: ' + locale));
+    const CONNECT_ONE = sheetsAPI.link + sheetsAPI.sheet + '/values/';
+    const CONNECT_TWO = '!' + sheetsAPI.range + '?key=' + sheetsAPI.key;
+    log('Fetch translations for ' + ((locale === 'Default') ? 'default language' : 'locale: ' + locale));
     const request = new Request(CONNECT_ONE + locale + CONNECT_TWO);
     const response = await fetch(request);
     if (!response.ok) {
@@ -387,8 +404,19 @@ async function requestTranslations(locale) {
             noop();
         } else {
             translationsInfo[i] = val;
+            const key = i;
+            const entry = val[0];
+            let tMap = new Map();
+            // Preload tMap with existing values if applicable
+            if (translationsMap.has(key)) {
+                tMap = translationsMap.get(key);
+            }
+            tMap.set(locale, entry);
+            translationsMap.set(key, tMap);
         }
     }
+    // Reorg translationsMap having the Default string as key
+    translationsMap.forEach((value) => translationsMap.set(value.get('Default'), value));
 }
 
 /**
@@ -1288,8 +1316,8 @@ function sendToDiscord(params, first, fallback) {
 */
 function addLockIcons() {
     $('.lock-edit-view').after('<div id="WMESTSlock">' + DOWNLOCK_ICON + '&nbsp;' + RE_LOCK_ICON + '</div>');
-    $(".Lock").attr("title", translationsInfo[40][0]);
-    $(".Downlock").attr("title", translationsInfo[41][0]);
+    $(".Lock").attr("title", 'Ask for lock'.stsTranslate(displayLocale));
+    $(".Downlock").attr("title", 'Ask for downlock'.stsTranslate(displayLocale));
     log('Lock icons added');
 }
 /**
@@ -1301,8 +1329,8 @@ function addClosureIcons() {
     if(wmeSDK_STS.DataModel.RoadClosures.getAll().length == 0) {
         $('.closures-list').height("auto");
     }
-    $(".Closure").attr("title", translationsInfo[42][0]);
-    $(".Open").attr("title", translationsInfo[43][0]);
+    $(".Closure").attr("title", 'Ask for closure'.stsTranslate(displayLocale));
+    $(".Open").attr("title", 'Ask for opening a closure'.stsTranslate(displayLocale));
     log('Closure icons added');
 }
 /**
@@ -1326,7 +1354,7 @@ function addValidationIcon() {
         const newDiv = document.createElement("div");
         newDiv.id = "WMESTSvalidation";
         newDiv.style.margin = "auto 10px";
-        newDiv.innerHTML = VALIDATION_ICON.replace(/title=".+?"/, 'title="' + translationsInfo[44][0] +'"');
+        newDiv.innerHTML = VALIDATION_ICON.replace(/Ask for validation/, 'Ask for validation'.stsTranslate(displayLocale));
         elem.appendChild(newDiv);
         Loadactions();
         log('Validation icon added');
@@ -1338,13 +1366,15 @@ function addValidationIcon() {
  * Till version `2024.10.20.01` being called from {@link init()}.
  */
 function addUpdateRequestIcons() {
+    let badUR = UR_NOT_IDENTIFIED_ICON.replace(/Request to Close as Not Identified/, 'Request to Close as Not Identified'.stsTranslate(displayLocale));
+    let solvedUR = UR_SOLVED_ICON.replace(/Request to Solve/, 'Request to Solve'.stsTranslate(displayLocale));
     let iconsDIV = `
     <div>
         <wz-button size="sm" color="clear-icon" class="focus">
-            ${UR_NOT_IDENTIFIED_ICON}
+            ${badUR}
         </wz-button>
         <wz-button size="sm" color="clear-icon" class="focus">
-            ${UR_SOLVED_ICON}
+            ${solvedUR}
         </wz-button>
     </div>`;
     let UR = document.querySelector('.mapUpdateRequest .additional-attributes');
@@ -1515,3 +1545,22 @@ try{
  * Function doing nothing. Used with ternary operator
  */
 const noop = ()=>{};
+
+/**
+ * Function to translate text into requested language by lookup in {@link translationsMap}
+ * @param {string} locale        // locale/language to translate into
+ * @return {string}              // returns translated text if translation available, otherwise returns original text
+ */
+const translate = function (locale, thisArg) {
+    let translatedText = thisArg ?? this.toString();
+    if (translationsMap.has(translatedText)) {
+        let tMap = new Map();
+        tMap = translationsMap.get(translatedText);
+        if (tMap.has(locale)) {
+            translatedText = tMap.get(locale);
+        }
+    }
+    return translatedText.replace(/"/g, "'");
+}
+
+String.prototype.stsTranslate = translate;
