@@ -866,15 +866,13 @@ function Loadactions() {
 /**
  * Recommended Lock. Gets the previously defined by the community lock level for the segment `roadType`.  
  * Till version `2024.10.20.01` being called from {@link getPermalinkCleaned()}
- * @param {W.DataModelObject} selection
+ * @param {W.DataModelObject|WmeSDK.Selection} selection
  * @param {number} current Always it's `-5` (for some reason...)
  * @returns {number} `ShouldBeLockedAt` as stated in the `RoadType` segment.
  */
-function getShouldLockedAt(selection, current){
+const getShouldLockedAt = function (selection, current){
     /**@type {number} */
     let ShouldBeLockedAt = current;
-    //var max_level = 0;
-    //var seg_rank = 0;
     const WMESTSCountry = countryDB[localStorage.getItem('WMESTSCountry')];
     const CountryLockLevel = [];//TODO: Positional 0 empty???
     CountryLockLevel[1] = WMESTSCountry.str_lvl;
@@ -883,10 +881,19 @@ function getShouldLockedAt(selection, current){
     CountryLockLevel[4] = WMESTSCountry.rmp_lvl;
     CountryLockLevel[6] = WMESTSCountry.maj_lvl;
     CountryLockLevel[7] = WMESTSCountry.min_lvl;
-    const RoadType = selection.attributes.roadType;
-    if(CountryLockLevel[RoadType]) {
-        if(CountryLockLevel[RoadType]>ShouldBeLockedAt) {
-            ShouldBeLockedAt = CountryLockLevel[RoadType];
+    // Decision: new version (using SDK): selection is interface selection; old version: selection is DataModelObject; 
+    if (selection.hasOwnProperty('objectType')) {
+        const roadTypes = [];
+        const lockLevels = [];
+        selection.ids.forEach((e) => roadTypes.push(wmeSDK_STS.DataModel.Segments.getById({segmentId: Number(e)}).roadType));
+        roadTypes.forEach((e) => lockLevels.push(CountryLockLevel[e]));
+        ShouldBeLockedAt = Math.max(...lockLevels);
+    } else {
+        const RoadType = selection.attributes.roadType;
+        if(CountryLockLevel[RoadType]) {
+            if(CountryLockLevel[RoadType]>ShouldBeLockedAt) {
+                ShouldBeLockedAt = CountryLockLevel[RoadType];
+            }
         }
     }
     return ShouldBeLockedAt;
