@@ -26,8 +26,6 @@
 // ==/UserScript==
 /* global W OpenLayers $ I18n WazeWrap*/
 
-import { WmeSDK } from "./sdkWME";
-
 // Updates informations
 const _WHATS_NEW_LIST = Object.freeze({ // New in this version
     '2021.01.07.01': 'Solve closure tab problem',
