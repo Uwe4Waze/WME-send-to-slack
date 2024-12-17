@@ -93,7 +93,7 @@ let displayLocale = '';
  * Variable to pick up the value of the current WME locale
  * @type {string}
  */
-let requestLocale = 'Default';
+let requestLocale = 'Default';//TODO: Not used. Erase?
 /**
  * This var evals if the {@link Loadactions()} function has been previously called.
  * @type {number}  If so, value changes to 1. This it's Global var WMESTS.
@@ -1522,7 +1522,33 @@ function getLocationBySegmentID(segmentID) {
     return {cityName, stateName, countryName};
 }
 
-log('Load');
+/**
+ * Function doing nothing. Used with an empty ternary operator.
+ */
+const noop = ()=>{};
+
+/**
+ * Function to translate text into requested language by lookup in {@link translationsMap}.
+ * @param {string} locale locale/language to translate into.
+ * @param {*} thisArg 
+ * @returns returns translated text if translation available, otherwise returns original text.
+ */
+const translate = function (locale, thisArg) {
+    let translatedText = thisArg ?? this.toString();
+    if (translationsMap.has(translatedText)) {
+        let tMap = new Map();
+        tMap = translationsMap.get(translatedText);
+        if (tMap.has(locale)) {
+            translatedText = tMap.get(locale);
+        }
+    }
+    return translatedText.replace(/"/g, "'");
+}
+
+// @ts-ignore
+String.prototype.stsTranslate = translate;
+
+log("Load");
 // Script starts here... Inits SDK and Checks for WME Readiness (happens only once when the wme-initialized, wme-logged-in, and wme-map-data-loaded had been dispatched).
 try{
     window.SDK_INITIALIZED
@@ -1546,27 +1572,3 @@ try{
     alert(`${SCRIPT_NAME}: ULTRA FATAL ERROR`);
     throw new Error(`${SCRIPT_NAME}: ULTRA FATAL ERROR - WINDOW SDK_INITIALIZED IT'S NOT DEFINED.`);
 }
-
-/**
- * Function doing nothing. Used with ternary operator
- */
-const noop = ()=>{};
-
-/**
- * Function to translate text into requested language by lookup in {@link translationsMap}
- * @param {string} locale        // locale/language to translate into
- * @return {string}              // returns translated text if translation available, otherwise returns original text
- */
-const translate = function (locale, thisArg) {
-    let translatedText = thisArg ?? this.toString();
-    if (translationsMap.has(translatedText)) {
-        let tMap = new Map();
-        tMap = translationsMap.get(translatedText);
-        if (tMap.has(locale)) {
-            translatedText = tMap.get(locale);
-        }
-    }
-    return translatedText.replace(/"/g, "'");
-}
-
-String.prototype.stsTranslate = translate;
