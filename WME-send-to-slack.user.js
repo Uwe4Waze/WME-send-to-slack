@@ -4,7 +4,7 @@
 // @namespace       https://wmests.bowlman.be
 // @description     Script to send Unlock/Closures/Validations requests to almost every Waze communities platform channels.
 // @description:fr  Ce script vous permettant d'envoyer vos demandes de délock/fermeture et de validation directement sur slack
-// @version         2024.11.27.01
+// @version         2025.01.07.01
 // @downloadURL     https://update.greasyfork.org/scripts/408365/WME%20Send%20to%20Slack.user.js
 // @updateURL       https://update.greasyfork.org/scripts/408365/WME%20Send%20to%20Slack.user.js
 // @include         /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor.*$/
@@ -67,7 +67,8 @@ const _WHATS_NEW_LIST = Object.freeze({ // New in this version
     '2024.06.01.01': 'Fixed script after last WME update, moved validation icon into edit suggestions',
     '2024.10.20.01': 'Important changes, nothing visible. Thanks for using the script. *Native WME Script API Migration *Constants *Some deletions *Auto Lock Fixed *Advice Info added.',
     '2024.11.23.01': '<br />*JSDoc Implemented.<br />*Fixes some error noticed by //@ts-check<br />*Fixing missing validation icon on startup with suggestion panel open<br />*WME SDK Added🥳🎉🎈<br />*Fixes to satisfy checks<br />*Final Fix for AutoLock<br />*Add some icon titles with translations<br />*Some Error messages were added.<br />*AutoLock enchacements..<br />*Adding Update Requests(UR) icons and actions🎈🥳',
-    '2024.11.27.01': 'Fixed missing update request icons (breaking change in WME v2.261)'
+    '2024.11.27.01': 'Fixed missing update request icons (breaking change in WME v2.261)',
+    '2025.01.07.01': 'New: Formerly Channel option (settings tab) is now a language selector defining the language of the requests. Bug fixed: UR icons were multiplied when saving edit suggestions'
 });
 // Global Vars declaration only or some critical configs (must be easy to modify so it's set here instead of a let declaration into a function)
 /** Script name retrieved from `UserScript:name` tag. Actual Script Name @type {string}. Global const WMESTS @constant*/
@@ -102,9 +103,9 @@ let requestLocale = 'Default';//TODO: Not used. Erase?
 let actionsloaded = 0;
 /**
  * This var contains all the used and localized displayable text of the script. Some error messages (critical ones or less important ones) can not be included since doesn't need to be localized.
- * @type {Array[]} Global var WMESTS.
+ * @type {Map} Global var WMESTS.
  */
-const translationsInfo = [];
+const translationsImportMap = new Map();
 /**
  * This map contains all the used and localized displayable text of the script and is used by {@link translate} function.  
  * Some error messages (critical ones or less important ones) are not included since they doesn't need to be localized.
@@ -133,7 +134,7 @@ const WMESTS_CONFIGS_HTML = `<label class="control-label" id="country-tag-sts"><
 <select id="WMESTSCountry"  class="form-control" style="margin: 8px 0px;"></select>
 <label class="control-label" id="state-tag-sts"></label>
 <select id="WMESTSState" class="form-control" style="margin: 8px 0px;"></select>
-<label class="control-label" id="channel-tag-sts"></label>
+<label class="control-label" id="language-tag-sts"></label>
 <select id="WMESTSLanguage" class="form-control" style="margin: 8px 0px;"></select>`;
 
 // Icons in Constants
@@ -172,7 +173,7 @@ const EDITOR_ICONS = Object.freeze({
     4: 'https://storage.googleapis.com/wazeopedia-files/5/59/23_Map_editor_4.png',
     5: 'https://storage.googleapis.com/wazeopedia-files/8/87/24_Map_editor_5.png',
     6: 'https://storage.googleapis.com/wazeopedia-files/6/6b/25_Map_editor_6.png',
-    7: '',
+    7: ''
 });
 
 /**
@@ -188,12 +189,12 @@ const EDITOR_ICONS = Object.freeze({
  * 9. Checks version {@link versionCheck()}
  *
  */
-function init() {
+const init = function () {
     log('WME chargé');
     if (!WazeWrap?.Ready) {
-    setTimeout(init, 800);
-    log("WazeWrap used for alerts it's still loading so we'll wait");
-    return;
+        setTimeout(init, 800);
+        log("WazeWrap used for alerts it's still loading so we'll wait");
+        return;
     }
     (!GM_info.scriptWillUpdate || !GM_info.script.options.check_for_updates) ? WazeWrap.Alerts.error(SCRIPT_NAME, 'Check your TM settings... Unable to check for script updates') : noop();
     //Settings Tab
@@ -289,41 +290,16 @@ function init() {
     setTimeout(versionCheck,2000);
 
     $('#WSTSFS-Container').css('display', 'block');
-}
+};
 
 // Functions used by the Script
-
-/**Make HTTP Requests with Tampermonkey  Avoids clonflicts with CSP policy and other but debugging must be from Tampermonkey VM.
- * Requests don't pass through WME console window but Tampermonkey extension console window.
- * Since Waze Staff stated that added all the required domains to the CSP policy this should not be required anymore.  
- * Till version `2024.10.20.01` being called from {@link localization()}
- * @param {("GET"|"POST")} type
- * @param {string} url
- * @returns {Promise}
- * @deprecated Avoid conflicts with WMESDK when @ grant is used window object changes... so now grant is none
-*/
-function makeHTTPRequest(type, url) {
-    return new Promise((resolve, reject) => {
-        GM_xmlhttpRequest({
-            method: type,
-            url: url,
-            headers: {'Referer': document.location.href},
-            onload: function(response) {
-                resolve(JSON.parse(response.response));
-            },
-            onerror: function(error) {
-                reject(error);
-            }
-        });
-    });
-}
 
 /**
  * Auto Lock Change.
  * Makes click into the requested level for `Lock/Unlock` purposes which will be the {@link wmeStsTo Requested Level}
  * @param {number} [times=1] Times this function has been called. Shall not be used when calling this f(x).
  */
-function autoLockClick (times){
+const autoLockClick = function (times) {
     times ??= 1; // Starting counter
     if(document.getElementById('lockRank-0') === null && times <= 10) {
         if (times === 10 || document.querySelector('.lock-edit-view > wz-rich-tooltip:nth-child(2) > wz-tooltip:nth-child(1) > wz-tooltip-source:nth-child(1) > wz-tooltip-target:nth-child(1) > wz-checkable-chip:nth-child(1)').hasAttribute('disabled')) {
@@ -346,51 +322,64 @@ function autoLockClick (times){
        $(wmeLockLvl).trigger('click');
        WazeWrap.Alerts.info(SCRIPT_NAME, '🔐');
     }
-}
+};
 
 /**Gets the browser language and load translations into. Also sets `localstorage` for language advice (`WMESTSlangalert`).
- * {@link translationsInfo} for that `locale`
+ * {@link translationsMap} for that `locale`
  * Till version `2024.10.20.01` being Called from {@link init()}
  * @author GitHub: ordonezgs
  * @async
 */
-async function localization () {
+const localization = async function () {
     /** Localization Spreadsheet SheetName as same as the
      * {@link I18n.locale Browser Locale}
      * @see {@link https://docs.google.com/spreadsheets/d/1kW09NbMJUYU0nNRYUmwsoushZo7I-oQShCfr8hnr_hs/edit?usp=sharing WMESTS Localizations Spreadsheet}
     */
-    displayLocale = wmeSDK_STS.Settings.getLocale().localeCode;
-    let sheetName = sheetsAPI.sheetName; // on init: name of default sheet
+    const sheetName = sheetsAPI.sheetName; // on init: name of default sheet
+    // Load default (english) language
     try {
         await requestTranslations(sheetName);
     } catch (e) {
         log("Error while calling 'requestTranslations' function");
     }
-    //Checking if require translations different from any english language
-    if (!(['en-US', 'en-AU', 'en-GB'].includes(displayLocale)) && displayLocale !== I18n.defaultLocale) {
-        //Checking if the language is available for display
-        if (suppLngs.includes(displayLocale)) {
-            sheetName = displayLocale;
-            try {
-                await requestTranslations(sheetName); //Modify and ask for local storage before call the request
-            } catch (e) {
-                log("Error while calling 'requestTranslations' function");
-            }
-        }
+    // Load language for displaying in WME
+    displayLocale = wmeSDK_STS.Settings.getLocale().localeCode;
+    try {
+        await requestTranslations(displayLocale);
+    } catch (e) {
+        log("Error while calling 'requestTranslations' function");
+    }
+    // Load language for requests
+    requestLocale = localStorage.getItem('WMESTSRequestLanguage');
+    try {
+        await requestTranslations(requestLocale);
+    } catch (e) {
+        log("Error while calling 'requestTranslations' function");
     }
     log('Localization function correctly loaded');
-}
+};
 
 /**
  * Brings the strings translations from Google Sheets v4 API
  * @param {string} locale {@link I18n} locale as the browser locale
  * @async
  */
-async function requestTranslations(locale) {
-    const CONNECT_ONE = sheetsAPI.link + sheetsAPI.sheet + '/values/';
-    const CONNECT_TWO = '!' + sheetsAPI.range + '?key=' + sheetsAPI.key;
-    log('Fetch translations for ' + ((locale === 'Default') ? 'default language' : 'locale: ' + locale));
-    const request = new Request(CONNECT_ONE + locale + CONNECT_TWO);
+const requestTranslations = async function (locale) {
+    //Checking if requested language is default english language
+    if (['en', 'en-US', 'en-AU', 'en-GB'].includes(locale)) {
+        locale = 'Default';
+    }
+    let tstr = '';
+    if (translationsMap.get(`SupportedLanguage_${locale}`)) {
+        tstr = (locale === 'Default') ? 'default language' : `locale ${locale}`;
+        log(`Translations for ${tstr} already fetched`);
+        return;
+    }
+    const CONNECT_ONE = `${sheetsAPI.link}${sheetsAPI.sheet}/values/`;
+    const CONNECT_TWO = `!${sheetsAPI.range}?key=${sheetsAPI.key}`;
+    tstr = (locale === 'Default') ? 'default language' : `locale: ${locale}`;
+    log(`Fetch translations for ${tstr}`);
+    const request = new Request(`${CONNECT_ONE}${locale}${CONNECT_TWO}`);
     const response = await fetch(request);
     if (!response.ok) {
         WazeWrap.Alerts.error(SCRIPT_NAME, 'Cannot connect to Google Sheets API');
@@ -402,116 +391,196 @@ async function requestTranslations(locale) {
         if (!(Array.isArray(val) && val.length)) {
             noop();
         } else {
-            translationsInfo[i] = val;
             const key = i;
             const entry = val[0];
             let tMap = new Map();
-            // Preload tMap with existing values if applicable
+            // Preload tMap with existing values
+            if (translationsImportMap.has(key)) {
+                tMap = translationsImportMap.get(key);
+            }
+            tMap.set(locale, entry);
+            translationsImportMap.set(key, tMap);
+        }
+    }
+    const lMap = new Map();
+    lMap.set(true, true);
+    translationsMap.set(`SupportedLanguage_${locale}`, lMap);
+    // Reorg translationsMap having the Default string as key
+    translationsImportMap.forEach((entry) => {
+        const key = entry.get('Default');
+        if (key) {
+            let tMap = new Map();
+            // Preload tMap with existing values
             if (translationsMap.has(key)) {
                 tMap = translationsMap.get(key);
             }
-            tMap.set(locale, entry);
+            tMap.set(locale, entry.get(locale));
             translationsMap.set(key, tMap);
         }
-    }
-    // Reorg translationsMap having the Default string as key
-    translationsMap.forEach((value) => translationsMap.set(value.get('Default'), value));
-}
+    });
+};
 
 /**
- * Get the `cityID` from the `DataModelObject.attributes` from a Segment or a Venue with the associated `StreetID` of the {@link W.DataModelObject}.  
+ * Get the `cityId` from the `DataModelObject.attributes` from a Segment or a Venue with the associated `StreetID` of the {@link W.DataModelObject}.  
  * Till version `2024.10.20.01` being called from {@link getPermalinkCleaned()}
- * @param {W.DataModelObject} selection `DataModelObject` selection.
- * @param {string} Type Asks for a `segment` or `venue` type. //Previously only accepting("segment"|"venue")
+ * @param {W.DataModelObject|WmeSDK.Selection|string|number} input `DataModelObject` or SDK selection
+ * @param {string?} inputType Declares the type of param 'input'
+ * @returns {number|null} cityId
  * @see DataModelObject SDK class.
  */
-function getCityID(selection, Type) {//TODO: SDK
-    let StreetID = 0;
-    if(Type !== 'segment')
-    {
-        StreetID = selection.attributes.streetID;
+const getCityId = function (input, inputType) {
+    let cityId = null;
+    // way to get cityId depends on objectType
+    switch (inputType) {
+        // inputType is 'selection' if input results from SDK function
+        case 'selection': {
+            if (!(input.hasOwnProperty('objectType'))) {
+                log(`getlocation: wrong input parameters. inputtype is ${inputType} but ${input} does not have property 'objecttype'`);
+                throw new Error(`getlocation: wrong input parameters. inputtype is ${inputType} but ${input} does not have property 'objecttype'`);
+            }
+            input.ids.forEach(id => {
+                // way to get cityId depends on objectType
+                switch (input.objectType) {
+                    case 'segment':
+                    case 'venue': {
+                        const addressObject = getAddressObject(id, input.objectType);
+                        if ((addressObject !== null) && (!addressObject.isEmpty)) {
+                            cityId = addressObject.city.id;
+                        }
+                        break;
+                    }
+                    case 'bigJunction': {
+                        const obj = wmeSDK_STS.DataModel.BigJunctions.getById({ bigJunctionId: id });
+                        if ((obj !== null)) {
+                            cityId = obj.cityId;
+                        }
+                        break;
+                    }
+                    case 'mapComment': {
+                        const obj = wmeSDK_STS.DataModel.MapComments.getById({ mapCommentId: id });
+                        const geometry = obj.geometry;
+                        // @ts-ignore
+                        const olPoint = WazeWrap.Geometry.ConvertTo900913(geometry.coordinates[0][0][0], geometry.coordinates[0][0][1]);
+                        const pt = new OpenLayers.Geometry.Point(olPoint.lon, olPoint.lat);
+                        const closestSegment = WazeWrap.Geometry.findClosestSegment(pt, true, true);
+                        const streetId = closestSegment.getPrimaryStreetID();
+                        cityId = wmeSDK_STS.DataModel.Streets.getById({ streetId: streetId }).cityId;
+                                    break;
+                    }
+                    default:
+                        log(`getCityId: unsupported objectType ${input.objectType}`);
+                }
+            });
+            break;
+        }
+        case 'segment' :
+        case 'segmentId': {
+            const addressObject = getAddressObject(input, 'segment');
+            if ((addressObject !== null) && (!addressObject.isEmpty)) {
+                cityId = addressObject.city.id;
+            }
+            break;
+        }
+        case 'venueId': {
+            const addressObject = getAddressObject(input, 'venue');
+            if ((addressObject !== null) && (!addressObject.isEmpty)) {
+                cityId = addressObject.city.id;
+            }
+            break;
+        }
+        case 'MapUpdateRequestId': {
+            const obj = W.selectionManager.model.mapUpdateRequests.getObjectById(input);
+            const geometry = obj.getAttribute('geoJSONGeometry');
+            const pt = new OpenLayers.Geometry.Point(geometry.coordinates[0], geometry.coordinates[1]);
+            const closestSegment = WazeWrap.Geometry.findClosestSegment(pt, true, true);
+            const streetId = closestSegment.getPrimaryStreetID();
+            cityId = wmeSDK_STS.DataModel.Streets.getById({ streetId: streetId }).cityId;
+            break;
+        }
+        case 'EditSuggestionId': {
+            // Missing WME SDK Support
+            const obj = W.selectionManager.model.editSuggestions.getObjectById(input);
+            const relObj = obj.getRelatedObjectsUniqueIdentifiers()[0];
+            cityId = getCityId(relObj.objectId, relObj.objectType);
+            break;
+        }
+        default: {
+            log(`getCityId: inputtype ${inputType} is unknown`);
+            throw new Error(`getCityId: inputtype ${inputType} is unknown`);
+        }
     }
-    else {
-        StreetID = selection.attributes.primaryStreetID;
-    }
-    if (!StreetID) {
-        // lookup closest segment for (primary)StreetID
-        const closestSegment = WazeWrap.Geometry.findClosestSegment(selection.geometry, true, true);
-        StreetID = closestSegment.getAttribute('primaryStreetID');
-    }
-    if(StreetID) {
-        return wmeSDK_STS.DataModel.Streets.getById({streetId: StreetID})?.cityId;
-    } else {
-        return 0;
-    }
-}
+    return cityId;
+};
 
 /**
  * Gets the `City name` from `City ID`.  
  * Till version `2024.10.20.01` being called from {@link getPermalinkCleaned()}
- * @param {number} CityId `City ID` or `0`
+ * Till version `2024.11.27.01` named as getCity()
+ * @param {number|null} cityId `City ID` or `0` or `null`
+ * @returns {string} cityName
  */
-function getCity(CityId) {
+const getCityName = function (cityId) {
     /**@type {string} */
-    let cityName;
-    if (CityId > 0) {
-        cityName = wmeSDK_STS.DataModel.Cities.getById({cityId: CityId})?.name;
+    let cityName = '';
+    if (cityId !== null) {
+        cityName = wmeSDK_STS.DataModel.Cities.getById({cityId: cityId})?.name;
     }
-    if (!cityName) {
+    if (cityName === '') {
         cityName = $('span.full-address').text().split(',')[0];
     }
     return cityName;
-}
+};
 
 /**
  * Get Country name from City ID.  
  * Till version `2024.10.20.01` being called from {@link getPermalinkCleaned()}
- * @param {number} CityId `City ID` or `0`
- * @returns {string}
+ * Till version `2024.11.27.01` named as getCountry
+ * @param {number|null} cityId `City ID` or `0` or `null`
+ * @returns {string} countryName
  */
-function getCountry(CityId) {
-    if(CityId>0) {
-        const CountryID = wmeSDK_STS.DataModel.Cities.getById({cityId:CityId})?.countryId;
-        return wmeSDK_STS.DataModel.Countries.getById({countryId: CountryID})?.name;
+const getCountryName = function (cityId) {
+    if(cityId>0) {
+        const countryId = wmeSDK_STS.DataModel.Cities.getById({cityId:cityId})?.countryId;
+        return wmeSDK_STS.DataModel.Countries.getById({countryId: countryId})?.name;
     }
     else {
         return $('span.full-address').text().split(',')[$('span.full-address').text().split(',').length-1];
     }
-}
+};
+
 /**
  * Gets the `State` name with the `CityID`.  
  * Till version `2024.10.20.01` being called from {@link getPermalinkCleaned()}
- * @param {number} CityId `City ID` or `0`
+ * @param {number|null} cityId `City ID` or `0` or `null`
  * @returns {string} // StateName or empty string
  */
-function getStateName(CityId) {
-    let StateID;
-    let StateName = '';
-    if(wmeSDK_STS.DataModel.Cities.getById({cityId:CityId}))
-    {
-        StateID = wmeSDK_STS.DataModel.Cities.getById({cityId:CityId})?.stateId;
-        StateName = wmeSDK_STS.DataModel.States.getById({stateId: StateID})?.name ?? '';
+const getStateName = function (cityId) {
+    let stateName = '';
+    if(wmeSDK_STS.DataModel.Cities.getById({cityId: cityId}) !== null) {
+        const stateId = wmeSDK_STS.DataModel.Cities.getById({cityId: cityId})?.stateId;
+        stateName = wmeSDK_STS.DataModel.States.getById({stateId: stateId})?.name;
     }
-    return StateName;
-}
+    return (stateName !== null) ? stateName : '';
+};
+
 /** Asks for a reason while constructing a request until a reason is entered or prompt is cancelled.
  * Till version `2024.10.20.01` being called from {@link construct()}
- * @returns {string} Reason
+ * @returns {string|null} Reason
  */
-function askReason() {
+const askReason = function () {
     let x=0;
-    let Reason = '';
+    let reason = '';
     while(x<1) {
-        Reason = prompt(translationsInfo[1][0] + ' : ');//"Reason : "
-        if(Reason === '') {
-            alert(translationsInfo[2][0] + ' ');//"You need to complete the reason "
-            Reason=null;
+        reason = prompt('Reason'.stsTranslate(displayLocale) + ' ?'); //"Reason : "
+        if(reason === '') {
+            alert('Please fill in the reason'.stsTranslate(displayLocale) + ' !'); //"You need to complete the reason"
+            reason = null;
         } else {
             x++;
         }
     }
-    return Reason;
-}
+    return reason;
+};
 
 /**
  * Construction of the request and then(prior some checks) sends it to the apporpiate community channels. Script Principal functionality.  
@@ -519,70 +588,71 @@ function askReason() {
  * Till version `2024.10.20.01` being called from {@link iconActionHandler()}. Also calls {@link sendToDiscord()}
  * @param {("Downlock"|"Lock"|"Validation"|"Closure"|"Open"|"SolvedUR"|"BadUR")} iconAction Usually taken from the `class` HTML tag of the icon button.
  */
-function construct(iconAction) {
+const construct = function (iconAction) {
     log('Construction');
-    const answers = getPermalinkCleaned(iconAction); //TODO: Convert ANSWERS as a JS:Destructuring assignment
+    const answers = getPermalink(iconAction);
     log('Permalink generated');
     let reason;
     /**@type {string} */
-    let permalink = answers[0];
-    const textSelection = answers[1];
-    const countSelected = answers[2];
-    const selectedType = answers[3];
+    let permalink = answers.PL;
+    const textSelection = answers.linkText;
+    const countSelected = answers.count;
+    const selectedType = answers.featureType;
     /**@type {number} */
-    let requiredLevel = answers[4];
-    const cityName = answers[5];
-    const countryName = answers[6];
+    let requiredLevel = answers.requiredRank;
     /**@type {number} */
-    let shouldBeLockedAt = answers[7];
-    const stateName = answers[8];
+    let shouldBeLockedAt = answers.shouldBeLockedAt;
+    const cityName = answers.cityName;
+    const stateName = answers.stateName;
+    const countryName = answers.countryName;
     /**@type {?string} */
-    let details = "";
-    let telegramDetails = "";
-    let telegramReason = "";
-    let channel = "";
-    let closureTelegramDetails = ""; //Bug while sending to telegram creates a new line, so this will fill it.
-    let iconActionLocale = "";
-    sent=0;
-    abort=false;
+    let details = '';
+    let telegramDetails = '';
+    let telegramReason = '';
+    let channel = '';
+    let closureTelegramDetails = ''; //Bug while sending to telegram creates a new line, so this will fill it.
+    let iconActionLocale = '';
+    sent = 0;
+    abort = false;
     switch (iconAction) {//Sets the string of the IconAction for constructing the request.
-        case "Downlock":
-            iconActionLocale = translationsInfo[34][0];
+        case 'Downlock':
+            iconActionLocale = 'Unlock'.stsTranslate(requestLocale);
             break;
-        case "Lock":
-            iconActionLocale = translationsInfo[33][0];
+        case 'Lock':
+            iconActionLocale = 'Lock'.stsTranslate(requestLocale);
             break;
-        case "Validation":
-            iconActionLocale = translationsInfo[35][0];
+        case 'Validation':
+            iconActionLocale = 'Validation'.stsTranslate(requestLocale);
             break;
-        case "Closure":
-            iconActionLocale = translationsInfo[31][0];
+        case 'Closure':
+            iconActionLocale = 'Closure'.stsTranslate(requestLocale);
             break;
-        case "Open":
-            iconActionLocale = translationsInfo[32][0];
+        case 'Open':
+            iconActionLocale = 'Open'.stsTranslate(requestLocale);
             break;
-        case "BadUR":
-            iconActionLocale = translationsInfo[45][0];
+        case 'BadUR':
+            iconActionLocale = 'Mark as Not identified'.stsTranslate(requestLocale);
             break;
-        case "SolvedUR":
-            iconActionLocale = translationsInfo[46][0];
+        case 'SolvedUR':
+            iconActionLocale = 'Mark as Solved'.stsTranslate(requestLocale);
             break;
         default:
-            log("Not expected ERROR while loading actionicon string");
+            log('Not expected ERROR while loading actionicon string');
 
     }
-    if (iconAction === "Downlock" || iconAction === "Lock" || iconAction === "Validation") {
-        if (iconAction === "Lock") {//LOCK
+    if (iconAction === 'Downlock' || iconAction === 'Lock' || iconAction === 'Validation') {
+        if (iconAction === 'Lock') {//LOCK
             if (shouldBeLockedAt === -1) {//TODO: CHECK FOR AUTOLOCK PURPOSES... 0 will arrive? Update: 0 it's a valid autolock
                 shouldBeLockedAt = 1;
             }
-            details = prompt(translationsInfo[3][0] + " : ", String(shouldBeLockedAt));//"To level"
+            details = prompt('To level'.stsTranslate(displayLocale) + ' :', String(shouldBeLockedAt));//"To level"
             telegramDetails = details;
             if (parseInt(details) < -1 || parseInt(details) > 6 || isNaN(parseInt(details))) {//Invalid Level entered Warning...
-                log("Invalid Details, nothing sent. Kill Switch Activated.");
-                WazeWrap.Alerts.warning(SCRIPT_NAME, translationsInfo[38][0]);//Please only enter numbers between -1 and 6 for Lock/Unlock required/request level
+                log('Invalid Details, nothing sent. Kill Switch Activated.');
+                //Please only enter numbers between -1 and 6 for Lock/Unlock required/request level
+                WazeWrap.Alerts.warning(SCRIPT_NAME, 'Please only enter numbers between -1 and 6 for Lock/Unlock required/request level'.stsTranslate(requestLocale));
                 abort = true;
-                log("Kill Switch Activated.");
+                log('Kill Switch Activated.');
             }
             if (details !== null) {//User not cancelled the Prompt
                 if (parseInt(details)>requiredLevel/* parseInt(requiredLevel) */) {
@@ -591,41 +661,41 @@ function construct(iconAction) {
                 if (requiredLevel === null) {
                     requiredLevel = parseInt(details);
                 }
-                permalink = permalink + "&wmeststo=" + details;
-                details = translationsInfo[3][0] + " " + details; //"To level"
+                permalink = `${permalink}&wmeststo=${details}`;
+                details = `${'To level'.stsTranslate(requestLocale)} ${  details}`; //"To level"
                 telegramDetails = details;
             } else {
                 details = 'Cancelled';
             }
-        } else if (iconAction === "Validation") {//VALIDATION for Suggestions...
-            const suggestionId = getEditSuggestionID();
-            details = getEditSuggestionAttributeByID(suggestionId, 'description');
+        } else if (iconAction === 'Validation') {//VALIDATION for Suggestions...
+            const suggestionId = getEditSuggestionId();
+            details = getEditSuggestionAttributeById(suggestionId, 'description');
         }
         if (details !== 'Cancelled') {//Formatting some text to send...
-            telegramDetails = "*" + translationsInfo[4][0] + " :* " + details; //"Informations"
-            details = "\r\n" + translationsInfo[4][0] + " : " + details + "\r\n"; //"Informations"
+            telegramDetails = `*${'Informations'.stsTranslate(requestLocale)} :* ${details}`; //"Informations"
+            details = `\r\n${'Informations'.stsTranslate(requestLocale)} : ${details}\r\n`; //"Informations"
         }
-        if (iconAction !== "Lock" || details !== 'Cancelled') {//UNLOCK OR VALIDATION
+        if (iconAction !== 'Lock' || details !== 'Cancelled') {//UNLOCK OR VALIDATION
             //Alert the editor if he can edit himself
             const lvlEditor = wmeSDK_STS.State.getUserInfo()?.rank+1;
             if (lvlEditor >= requiredLevel && iconAction !== 'Validation') {
-                if (confirm(translationsInfo[5][0]) === false) {//"You can perform this edit. Do you wish to continue?"
-                    log("User can edit, so no edit is sent.");
+                if (confirm('You can perform this edit. Do you wish to continue?'.stsTranslate(requestLocale)) === false) {//"You can perform this edit. Do you wish to continue?"
+                    log('User can edit, so no edit is sent.');
                     abort = true;
-                    log("Kill Switch Activated");
+                    log('Kill Switch Activated');
                 } else {
-                    log("Editor Level check triggered, user decided to continue anyway.");
+                    log('Editor Level check triggered, user decided to continue anyway.');
                     reason = askReason();
                 }
             } else {// ask always for reason to get a chance to abort
-                log("Editor Level checked, ask.");
+                log('Editor Level checked, ask.');
                 reason = askReason();
             }
-            permalink += (details !== null && !permalink.includes("wmeststo") && iconAction !== "Validation") ? (permalink + "&wmeststo=" + String(wmeSDK_STS.State.getUserInfo()?.rank+1)) : undefined;
+            permalink += (details !== null && !permalink.includes('wmeststo') && iconAction !== 'Validation') ? (`&wmeststo=${String(wmeSDK_STS.State.getUserInfo()?.rank+1)}`) : '';
             if (reason !== null) {
                 if (reason) {
-                    telegramReason = "*" + translationsInfo[1][0] + " :* " + reason; //"Reason"
-                    reason = "\r\n" + translationsInfo[1][0] + " : " + reason; //"Reason"
+                    telegramReason = `*${'Reason'.stsTranslate(requestLocale)} :* ${reason}`; //"Reason"
+                    reason = `\r\n${'Reason'.stsTranslate(requestLocale)} : ${reason}`; //"Reason"
                 } else {
                     reason = '';
                     telegramReason = '';
@@ -634,17 +704,18 @@ function construct(iconAction) {
             } else {
                 reason = 'Cancelled';
             }
-            telegramDetails = telegramDetails + "\n" + telegramReason;
+            telegramDetails = `${telegramDetails}\n${telegramReason}`;
             details = details + reason;
-            channel = "editing";
+            channel = 'editing';
         } else {
             reason = 'Cancelled';
         }
-    } else if (iconAction === "Closure" || iconAction === "Open") {
+    } else if (iconAction === 'Closure' || iconAction === 'Open') {
         const date = new Date();
         date.setDate(date.getDate() + 1);
-        if (iconAction === "Closure") {
-            reason = prompt(translationsInfo[6][0], translationsInfo[36][0] + " " + date.toLocaleDateString("fr-FR") + " A<->B");//Check Drive sheet
+        if (iconAction === 'Closure') {
+            reason = prompt('from date hh:mm to date hh:mm directions and a reason (ex: from now till 31/12 22:00 A<->B - roadworks)'.stsTranslate(displayLocale),
+                             `${'from #Now until'.stsTranslate(requestLocale)} ${date.toLocaleDateString(requestLocale)} A<->B`);//Check Drive sheet
         } else {
             reason = askReason();
         }
@@ -652,109 +723,122 @@ function construct(iconAction) {
         if (reason == null) {
             reason = 'Cancelled';
         } else {
-            telegramReason = "*" + translationsInfo[7][0] + " :* " + reason;//"Details"
-            if (iconAction === "Closure") {
-                reason = "\r\n" + translationsInfo[7][0] + " : " + reason;//"Details"
+            telegramReason = `*${'Details'.stsTranslate(requestLocale)} :* ${reason}`;//"Details"
+            if (iconAction === 'Closure') {
+                reason = `\r\n${'Details'.stsTranslate(requestLocale)} : ${reason}`;//"Details"
             } else {
-                reason = "\r\n" + translationsInfo[1][0] + " : " + reason;//"Reason"
+                reason = `\r\n${'Reason'.stsTranslate(requestLocale)} : ${reason}`;//"Reason"
             }
             details = details + reason;
-            closureTelegramDetails = "*" + translationsInfo[8][0] + "*";//"Closure Details"
-            telegramDetails = telegramDetails + "\n" + telegramReason;
+            closureTelegramDetails = `*${'Closure Details'.stsTranslate(requestLocale)}*`;//"Closure Details"
+            telegramDetails = `${telegramDetails}\n${telegramReason}`;
         }
-        channel = "closures";
-    } else if (["BadUR", "SolvedUR"].includes(iconAction)) {
+        channel = 'closures';
+    } else if (['BadUR', 'SolvedUR'].includes(iconAction)) {
         reason = askReason() ?? 'Cancelled';
         permalink = wmeSDK_STS.Map.getPermalink(); // Override Permalink from getPermalinkCleaned.
-        details = `\n${translationsInfo[1][0]}: ${reason}`;
-        channel = "editing";
+        details = `\n${'Reason'.stsTranslate(requestLocale)}: ${reason}`;
+        channel = 'editing';
     }
-    log("City : " + cityName);
-    let separatorCity = "";
-    if (cityName !== "") {
-        separatorCity = ", ";
+    log('City : ' + cityName);
+    let separatorCity = '';
+    if (cityName !== '') {
+        separatorCity = ', ';
     }
-    log("State : " + stateName);
-    let separatorState = "";
-    if (stateName !=="") {
-        separatorState = ", ";
+    log('State : ' + stateName);
+    let separatorState = '';
+    if (stateName !=='') {
+        separatorState = ', ';
     }
-    log("Country : " + countryName);
+    log('Country : ' + countryName);
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     details = details.replace(urlRegex, function(url) {
         return encodeURI(url);
     });
     log(details);
-    if (permalink.indexOf("-100") >= 0 ) {
-        abort=true;
-        WazeWrap.Alerts.error(SCRIPT_NAME, translationsInfo[9][0]);//"Some segments aren't saved, please save them and try again"
+    if (permalink.indexOf('-100') >= 0 ) {
+        abort = true;
+        WazeWrap.Alerts.error(SCRIPT_NAME, "Some segments aren't saved, please save them and try again".stsTranslate(requestLocale));//"Some segments aren't saved, please save them and try again"
     }
     //const PROFILE_URL_WME = "https://www.waze.com/user/editor/"; // PREVIOUS VERSION..
-    const USER_NAME_WME = wmeSDK_STS.State.getUserInfo()?.userName ?? "ERROR";
+    const USER_NAME_WME = wmeSDK_STS.State.getUserInfo()?.userName ?? 'ERROR';
     const FULL_PROFILE_URL_WME = wmeSDK_STS.DataModel.Users.getUserProfileLink({userName: USER_NAME_WME});
     const USER_RANK_WME = wmeSDK_STS.State.getUserInfo()?.rank+1;
-    let TextToSend = ':' + translationsInfo[11][0] + requiredLevel + ": " + translationsInfo[10][0] + " : <" + encodeURI(FULL_PROFILE_URL_WME) + "|" + USER_NAME_WME + "> (*" + translationsInfo[11][0] + USER_RANK_WME + "*)\r\n" + translationsInfo[12][0] + " : <" + encodeURI(permalink) + "|" + textSelection + ">\r\n" + translationsInfo[13][0] + " : " + iconActionLocale + "\r\n" + translationsInfo[14][0] + " : " + cityName + separatorCity + stateName + separatorState + countryName + details;
-    let TextToSendDiscord = translationsInfo[10][0] + " : [" + USER_NAME_WME + "](" + encodeURI(FULL_PROFILE_URL_WME) + ") (" + translationsInfo[11][0] + USER_RANK_WME + ")\r\n" + translationsInfo[12][0] + " : [" + textSelection + "](" + encodeURI(permalink) + ")" + "\r\n" + translationsInfo[13][0] + " : " + iconActionLocale + "\r\n" + translationsInfo[14][0] + " : " + cityName + separatorCity + stateName + separatorState + countryName + details;
-    const TexToSendTelegramMD = `${translationsInfo[11][0]}${requiredLevel} *${translationsInfo[10][0]}:* [${USER_NAME_WME}](www.waze.com/user/editor/${USER_NAME_WME}) (*${USER_RANK_WME}*)
-*${translationsInfo[12][0]} :* [${textSelection}](${permalink})
-*${translationsInfo[13][0]} :* ${iconActionLocale}
-*${translationsInfo[14][0]} :* ${cityName}, ${stateName}, ${countryName}
-${closureTelegramDetails}${telegramDetails}`;
+    let TextToSend = `:${
+        'L'.stsTranslate(requestLocale)}${requiredLevel}: ${'User'.stsTranslate(requestLocale)} : <${
+        encodeURI(FULL_PROFILE_URL_WME)}|${USER_NAME_WME}> (*${'User'.stsTranslate(requestLocale)}${USER_RANK_WME}*)\r\n${
+        'Link'.stsTranslate(requestLocale)} : <${encodeURI(permalink)}|${textSelection}>\r\n${
+        'Request Type'.stsTranslate(requestLocale)} : ${iconActionLocale}\r\n${
+        'Location'.stsTranslate(requestLocale)} : ${cityName}${separatorCity}${stateName}${separatorState}${countryName}${
+        details}`;
+    let TextToSendDiscord = `${
+        'User'.stsTranslate(requestLocale)} : [${USER_NAME_WME}](${encodeURI(FULL_PROFILE_URL_WME)}) (${'L'.stsTranslate(requestLocale)}${USER_RANK_WME})\r\n${
+        'Link'.stsTranslate(requestLocale)} : [${textSelection}](${encodeURI(permalink)})\r\n${
+        'Request Type'.stsTranslate(requestLocale)} : ${iconActionLocale}\r\n${
+        'Location'.stsTranslate(requestLocale)} : ${cityName}${separatorCity}${stateName}${separatorState}${countryName}${
+        details}`;
+    const TexToSendTelegramMD = `${
+        'L'.stsTranslate(requestLocale)}${requiredLevel} *${'User'.stsTranslate(requestLocale)}:* [${USER_NAME_WME}](www.waze.com/user/editor/${USER_NAME_WME}) (*${USER_RANK_WME}*)*${
+        'Link'.stsTranslate(requestLocale)} :* [${textSelection}](${permalink})*${
+        'Request Type'.stsTranslate(requestLocale)} :* ${iconActionLocale}*${
+        'Location'.stsTranslate(requestLocale)} :* ${cityName}, ${stateName}, ${countryName}${
+        closureTelegramDetails}${
+        telegramDetails}`;
     TextToSend = TextToSend.replace('\r\n\r\n','\r\n');//TODO: This can be corrected through `${JS}`?
-    TextToSendDiscord = TextToSendDiscord.replace('\r\n\r\n','\r\n') + "\r\n\r\npowered by [" + [SCRIPT_NAME, SCRIPT_VERSION].join(" ") +"](https://wmests.bowlman.org)";//TODO: This can be corrected through `${JS}`?
+    TextToSendDiscord = `${TextToSendDiscord.replace('\r\n\r\n','\r\n')}\r\n\r\npowered by [${[SCRIPT_NAME, SCRIPT_VERSION].join(' ')}](https://wmests.bowlman.org)`;
     // Get the webhooks
 
     let promise;
 
-    if(reason !== 'Cancelled' && channel !== "" && abort === false) {
+    if(reason !== 'Cancelled' && channel !== '' && abort === false) {
         for (const key in serverDB[localStorage.getItem('WMESTSServer')]) {
             log('Chanel : ' + channel);
-            let actionicon = "";
+            let actionicon = '';
             log(iconAction);
             switch (iconAction.toLowerCase()) {//For GForms purposes only...
-                case "closure":
-                    actionicon = "road_closed";
+                case 'closure':
+                    actionicon = 'road_closed';
                     break;
-                case "open":
-                    actionicon = "open_closure";
+                case 'open':
+                    actionicon = 'open_closure';
                     break;
-                case "lock":
-                    actionicon = "lock";
+                case 'lock':
+                    actionicon = 'lock';
                     break;
-                case "downlock":
-                    actionicon = "unlock";
+                case 'downlock':
+                    actionicon = 'unlock';
                     break;
-                case "validation":
-                    actionicon = "heavy_check_mark";
+                case 'validation':
+                    actionicon = 'heavy_check_mark';
                     break;
                 default:
-                    actionicon = "pencil2";
+                    actionicon = 'pencil2';
             }
             switch (key.toLowerCase()) {
-                case "slack": {
+                case 'slack': {
                     $.ajax({
                         data: 'payload=' + JSON.stringify({
-                            "text": TextToSend,
-                            "username": SCRIPT_NAME + " " + SCRIPT_VERSION,
-                            "mrkdwn": true,
-                            "channel": serverDB[localStorage.getItem('WMESTSServer')][key]["chanel_" + channel],
-                            "icon_emoji": actionicon
+                            'text': TextToSend,
+                            'username': `${SCRIPT_NAME} ${SCRIPT_VERSION}`,
+                            'mrkdwn': true,
+                            'channel': serverDB[localStorage.getItem('WMESTSServer')][key]['chanel_' + channel],
+                            'icon_emoji': actionicon
                         }),
                         processData: false,
                         type: 'POST',
                         url: serverDB[localStorage.getItem('WMESTSServer')][key][channel],
                         error: function (x, y, z) {
-                            log('Slack error : ' + x + ' ' + y + ' ' + z);
+                            log(`Slack error : ${x} ${y} ${z}`);
                         }
                     });
                     log(TextToSend);
                     sent=sent+1;
                     break;
                 }
-                case "discord": {
+                case 'discord': {
                     let channelType = /**@type {("Text"|"Forum"|null)} */(localStorage.getItem('WMESTSChannelType'));
                     if (!channelType) {
-                        channelType = "Text"; // First guess: text channel
+                        channelType = 'Text'; // First guess: text channel
                     }
 
                     const myEmbed = {
@@ -762,13 +846,13 @@ ${closureTelegramDetails}${telegramDetails}`;
                     };
 
                     const bodyTextchannel = {
-                        username: "(L" + requiredLevel + ") - " + iconActionLocale,
+                        username: `(L${requiredLevel}) - ${iconActionLocale}`,
                         avatar_url: EDITOR_ICONS[requiredLevel],
                         embeds: [myEmbed]
                     };
 
                     const bodyForumchannel = {
-                        username: "(L" + requiredLevel + ") - " + iconActionLocale,
+                        username: `(L${requiredLevel}) - ${iconActionLocale}`,
                         avatar_url: EDITOR_ICONS[requiredLevel],
                         content: TextToSendDiscord,
                         thread_name: [cityName, stateName, countryName].filter(Boolean).join(', '),
@@ -778,18 +862,18 @@ ${closureTelegramDetails}${telegramDetails}`;
                     const url = serverDB[localStorage.getItem('WMESTSServer')][key][channel];
 
                     const params = {
-                        "url": url,
-                        "Text": bodyTextchannel,
-                        "Forum": bodyForumchannel
+                        'url': url,
+                        'Text': bodyTextchannel,
+                        'Forum': bodyForumchannel
                     };
 
-                    promise = sendToDiscord(params, channelType, (channelType === "Text" ? "Forum" : "Text"));
+                    promise = sendToDiscord(params, channelType, (channelType === 'Text' ? 'Forum' : 'Text'));
 
                     log(TextToSendDiscord);
                     break;
                     }
-                case "gform": {
-                    const currentlocation = (new OpenLayers.LonLat(wmeSDK_STS.Map.getMapCenter().lon,wmeSDK_STS.Map.getMapCenter().lat)).toString().replace('lon=','').replace("lat=","");
+                case 'gform': {
+                    const currentlocation = (new OpenLayers.LonLat(wmeSDK_STS.Map.getMapCenter().lon,wmeSDK_STS.Map.getMapCenter().lat)).toString().replace('lon=','').replace('lat=','');
                     const GFormDBloc = gFormDB[localStorage.getItem('WMESTSServer')];
                     const datas = {};
                     datas[GFormDBloc.pl]=decodeURI(permalink);
@@ -807,33 +891,31 @@ ${closureTelegramDetails}${telegramDetails}`;
                     $.ajax({
                         url: serverDB[localStorage.getItem('WMESTSServer')][key]['url'],
                         data: datas,
-                        type : "POST",
-                        dataType: "xml",
-                        error: function(x, y, z)
-                        {
-                            log(x + ' ' + y + ' ' + z);
+                        type : 'POST',
+                        dataType: 'xml',
+                        error: function(x, y, z) {
+                            log(`${x} ${y} ${z}`);
                         }
                     });
                     sent=sent+1;
                     break;
                 }
-                case "telegram": {
+                case 'telegram': {
                     const dataTelegram = {
                         chat_id: serverDB[localStorage.getItem('WMESTSServer')][key]['chat_id'],
                         text: TexToSendTelegramMD,
-                        parse_mode: "Markdown",
+                        parse_mode: 'Markdown',
                         disable_web_page_preview: true
                     };
                     $.ajax({
                         data: dataTelegram,
                         type: 'POST',
                         url: serverDB['DEVns_en'][key]['editing'],
-                        error: function(x, y, z)
-                        {
-                            log('Telegram error : ' + x + ' ' + y + ' ' + z);
+                        error: function(x, y, z) {
+                            log(`Telegram error: ${x} ${y} ${z}`);
                         }
                     });
-                    log("Telegram request processed");
+                    log('Telegram request processed');
                     sent=sent+1;
                     break;
                 }
@@ -841,14 +923,14 @@ ${closureTelegramDetails}${telegramDetails}`;
             }
         }
     }
-    Promise.all([promise]).then(values => {
+    Promise.all([promise]).then(_values => {
         if (sent > 0) {
-            WazeWrap.Alerts.success(SCRIPT_NAME, translationsInfo[15][0]);//'Request Sent'
+            WazeWrap.Alerts.success(SCRIPT_NAME, 'Request sent'.stsTranslate(displayLocale));//'Request Sent'
         } else {
-            WazeWrap.Alerts.error(SCRIPT_NAME, translationsInfo[16][0]);//'Nothing sent'
+            WazeWrap.Alerts.error(SCRIPT_NAME, 'Nothing sent'.stsTranslate(displayLocale));//'Nothing sent'
         }
     });
-}
+};
 
 
 /**Prepare the role of the icons.  
@@ -867,6 +949,7 @@ function Loadactions() {
  * Recommended Lock. Gets the previously defined by the community lock level for the segment `roadType`.  
  * Till version `2024.10.20.01` being called from {@link getPermalinkCleaned()}
  * @param {W.DataModelObject|WmeSDK.Selection} selection
+ * @param {W.DataModelObject|WmeSDK.Selection} selection
  * @param {number} current Always it's `-5` (for some reason...)
  * @returns {number} `ShouldBeLockedAt` as stated in the `RoadType` segment.
  */
@@ -881,7 +964,7 @@ const getShouldLockedAt = function (selection, current){
     CountryLockLevel[4] = WMESTSCountry.rmp_lvl;
     CountryLockLevel[6] = WMESTSCountry.maj_lvl;
     CountryLockLevel[7] = WMESTSCountry.min_lvl;
-    // Decision: new version (using SDK): selection is interface selection; old version: selection is DataModelObject; 
+    // Decision: new version (using SDK): selection is interface selection; old version: selection is DataModelObject;
     if (selection.hasOwnProperty('objectType')) {
         const roadTypes = [];
         const lockLevels = [];
@@ -897,81 +980,83 @@ const getShouldLockedAt = function (selection, current){
         }
     }
     return ShouldBeLockedAt;
-}
+};
 /**
  * Update the language in the Browser's database. Nothing related to localization.  
  * This loads the options for selecting different channels (for countries which have two language channels) in the settings menu.
  * Also sets `localStorage` for `WMESTSServer`.
- * Till version `2024.10.20.01` being called from {@link UpdateStates()} and {@link LoadTab()}
+ * Till version `2024.10.20.01` being called from {@link updateStates()} and {@link LoadTab()}
  */
-function UpdateLanguages() {
+const updateLanguages = function () {
     $('#WMESTSLanguage option').each(function() {
         $(this).remove();
     });
     let OptionLanguage = document.createElement('option');
+    OptionLanguage.value = 'Default';
     OptionLanguage.text = '------';
     if(!languageDB[localStorage.getItem('WMESTSState')]) {//Country Not Applicable.
-        OptionLanguage.text = 'Default';
+        OptionLanguage.text = 'English';
     }
     $('#WMESTSLanguage').append(OptionLanguage);
     if(localStorage.getItem('WMESTSState') && !languageDB[localStorage.getItem('WMESTSState')]) {
+        localStorage.setItem('WMESTSRequestLanguage', 'Default');
         localStorage.setItem('WMESTSServer',localStorage.getItem('WMESTSState') + '_en');
         OptionLanguage.selected=true;
     }
-    const selectedLanguage = languageDB[localStorage.getItem('WMESTSState')];
-    for (const key in selectedLanguage){
+    const selectableLanguages = languageDB[localStorage.getItem('WMESTSState')];
+    for (const key in selectableLanguages){
         OptionLanguage = document.createElement('option');
-        OptionLanguage.text=selectedLanguage[key];
-        OptionLanguage.value=localStorage.getItem('WMESTSState') + '_' + key;
-        if(('WMESTSServer' in localStorage) && localStorage.getItem('WMESTSServer') === localStorage.getItem('WMESTSState') + '_' + key) {
+        OptionLanguage.value=key;
+        OptionLanguage.text=selectableLanguages[key];
+        if(('WMESTSRequestLanguage' in localStorage) && localStorage.getItem('WMESTSRequestLanguage') === key) {
             OptionLanguage.selected=true;
         }
         $('#WMESTSLanguage').append(OptionLanguage);
     }
-}
+};
 
 /**
  * Updates the `State` into the Settings tab if country applicable only.
- * Till version `2024.10.20.01` being called from {@link LoadTab()}. Also calls for {@link UpdateLanguages()}
+ * Till version `2024.10.20.01` being called from {@link LoadTab()}. Also calls for {@link updateLanguages()}
  */
-function UpdateStates() {
+const updateStates = function () {
     $('#WMESTSState option').each(function() {
         $(this).remove();
     });
     let OptionState = document.createElement('option');
-    OptionState.text = translationsInfo[18][0];
+    OptionState.text = 'No State'.stsTranslate(displayLocale);
     if(stateDB[localStorage.getItem('WMESTSCountry')]) {
         OptionState.text = '------';
         OptionState.selected=true;
     }
     OptionState.id = localStorage.getItem('WMESTSCountry') + 'ns';
     $('#WMESTSState').append(OptionState);
-    const selectedState = stateDB[localStorage.getItem('WMESTSCountry')];
-    for (const key in selectedState){
+    const selectableStates = stateDB[localStorage.getItem('WMESTSCountry')];
+    for (const key in selectableStates){
         OptionState = document.createElement('option');
-        OptionState.text=selectedState[key];
+        OptionState.text=selectableStates[key];
         OptionState.value=localStorage.getItem('WMESTSCountry') + key;
         if(('WMESTSState' in localStorage) && localStorage.getItem('WMESTSState') === localStorage.getItem('WMESTSCountry')+key) {
             OptionState.selected=true;
         }
         $('#WMESTSState').append(OptionState);
     }
-    UpdateLanguages();
-}
+    updateLanguages();
+};
 
 /**
  * Settings Tab - designed to implement WME Native API. This sets the `localStorage` items for `WMESTSServer`, `WMESTSState`, `WMESTSCountry`  
  * This loads the strings titles and some options for the settings tab.
  * TODO:Next Stage will be Waze SDK.
- * Till version `2024.10.20.01` being called from {@link init()}. Also calls for {@link UpdateStates()} and {@link UpdateLanguages()}
+ * Till version `2024.10.20.01` being called from {@link init()}. Also calls for {@link updateStates()} and {@link updateLanguages()}
  */
-function LoadTab(){
+const LoadTab = function () {
     const COUNTRY_SELECTOR = document.getElementById('WMESTSCountry');
     const STATE_SELECTOR = document.getElementById('WMESTSState');
-    const CHANNEL_SELECTOR = document.getElementById('WMESTSLanguage');
-    document.getElementById('country-tag-sts').innerText = translationsInfo[19][0];
-    document.getElementById('state-tag-sts').innerText = translationsInfo[20][0];
-    document.getElementById('channel-tag-sts').innerText = translationsInfo[21][0];
+    const LANGUAGE_SELECTOR = document.getElementById('WMESTSLanguage');
+    document.getElementById('country-tag-sts').innerText = 'Country'.stsTranslate(displayLocale);
+    document.getElementById('state-tag-sts').innerText = 'State'.stsTranslate(displayLocale);
+    document.getElementById('language-tag-sts').innerText = 'Language'.stsTranslate(displayLocale);
     if(!('WMESTSCountry' in localStorage)) {
         const OptionCountry = document.createElement('option');
         OptionCountry.text='------';
@@ -990,45 +1075,58 @@ function LoadTab(){
     OptionState.text = '------';
     STATE_SELECTOR.appendChild(OptionState);
 
-    if(!('WMESTSServer' in localStorage)) {
+    if(!('WMESTSRequestLanguage' in localStorage)) {
         const OptionLanguage = document.createElement('option');
+        OptionLanguage.value = 'Default';
         OptionLanguage.text = '------';
-        CHANNEL_SELECTOR.appendChild(OptionLanguage);
+        LANGUAGE_SELECTOR.appendChild(OptionLanguage);
     }
-    if(('WMESTSCountry' in localStorage) && !stateDB[localStorage.getItem('WMESTSCountry')])
-    {
+    if(('WMESTSCountry' in localStorage) && !stateDB[localStorage.getItem('WMESTSCountry')]) {
         localStorage.setItem('WMESTSState', localStorage.getItem('WMESTSCountry') + 'ns');
     }
-    if(('WMESTSState' in localStorage) && !languageDB[localStorage.getItem('WMESTSState')])
-    {
+    if(('WMESTSState' in localStorage) && !languageDB[localStorage.getItem('WMESTSState')]) {
+        localStorage.setItem('WMESTSRequestLanguage', 'Default');
         localStorage.setItem('WMESTSServer', localStorage.getItem('WMESTSState') + '_en');
     }
     const WMESTSCountry = document.querySelector('#WMESTSCountry');
     WMESTSCountry.addEventListener('change', function() {
         localStorage.setItem('WMESTSCountry', this.value);
         localStorage.removeItem('WMESTSState');
-        localStorage.removeItem('WMESTSLanguage');
+        localStorage.removeItem('WMESTSRequestLanguage');
         localStorage.removeItem('WMESTSChanel');
         localStorage.removeItem('WMESTSServer');
-        if(!stateDB[this.value])
-        {
+        if(!stateDB[this.value]) {
             localStorage.setItem('WMESTSState', this.value + 'ns');
         }
-        UpdateStates();
+        updateStates();
     });
     const WMESTSState = document.querySelector('#WMESTSState');
     WMESTSState.addEventListener('change', function() {
         localStorage.setItem('WMESTSState', this.value);
-        localStorage.removeItem('WMESTSLanguage');
+        localStorage.removeItem('WMESTSRequestLanguage');
         localStorage.removeItem('WMESTSChanel');
-        UpdateLanguages();
+        updateLanguages();
     });
     const WMESTSLanguage = document.querySelector('#WMESTSLanguage');
-    WMESTSLanguage.addEventListener('change', function() {
-        localStorage.setItem('WMESTSServer', this.value);
+    WMESTSLanguage.addEventListener('change', function () {
+        const locale = this.value;
+        if (!serverDB[`${localStorage.getItem('WMESTSState')}_${locale}`]) {
+            localStorage.setItem('WMESTSServer', localStorage.getItem('WMESTSState') + '_en');
+        } else {
+            localStorage.setItem('WMESTSServer', `${localStorage.getItem('WMESTSState')}_${locale}`);
+        }
+        const obj = languageDB[localStorage.getItem('WMESTSState')];
+        if (obj?.hasOwnProperty(locale)) {
+            localStorage.setItem('WMESTSRequestLanguage', locale);
+            requestLocale = locale;
+            requestTranslations(locale);
+        } else {
+            localStorage.setItem('WMESTSRequestLanguage', 'Default');
+            requestLocale = 'Default';
+        }
     });
-    UpdateStates();
-}
+    updateStates();
+};
 
 /**
  * Send easily logs into the console (colored messages and personalized console logs).
@@ -1036,136 +1134,132 @@ function LoadTab(){
  * @author GitHub:Glodenox
  * @author GitHub:Tunisiano18
  */
-function log(message, thisscript = SCRIPT_NAME + '(' + SCRIPT_VERSION + ')') { // Thanks to Glodenox but enhanced
+const log = function (message, thisscript = `${SCRIPT_NAME} (${SCRIPT_VERSION})`) { // Thanks to Glodenox but enhanced
     if (typeof message === 'string') {
-        console.log('%c' + thisscript + ' : %c' + message, 'color:black', 'color:#d97e00');
+        console.log(`%c${thisscript} : %c${message}`, 'color:black', 'color:#d97e00');
     } else {
-        console.log('%c' + thisscript + ' :', 'color:black', message);
+        console.log(`%c${thisscript} :`, 'color:black', message);
     }
-}
+};
 
 /**
  * Create the permalink for the object or objects crafted request.  
- * Till version `2024.10.20.01` being called from {@link construct()}. Also calls for {@link getShouldLockedAt()}, {@link getCityID()}, {@link getCountry()} and {@link getCity()}
+ * Till version `2024.10.20.01` being called from {@link construct()}. Also calls for {@link getShouldLockedAt()}, {@link getCityId()}, {@link getCountryName()} and {@link getCityName()}
+ * Till version `2024.11.27.01` named as getPermalinkCleaned
  * TODO: Make better doc. for this f(x)
  * @param {("Downlock"|"Lock"|"Validation"|"Closure"|"Open"|"SolvedUR"|"BadUR")} iconaction WMESTS Action
- * @returns {any[]}
+ * @returns {{ PL: string, linkText: string, count: number, featureType: string, requiredRank: number, cityName: string, countryName: string, shouldBeLockedAt: number, stateName: string }}
  */
-function getPermalinkCleaned(iconaction) {
+const getPermalink = function (iconaction) {
     /**@type {string}*/
-    const text = 'https://www.waze.com/editor?env=' + wmeSDK_STS.Settings.getRegionCode() + '&';
+    const wmeBasicURL = `https://www.waze.com/editor?env=${wmeSDK_STS.Settings.getRegionCode()}`;
     let count = 0;
-    /**@type {string} */
-    let featureType = 'venue';
-    let featureTypeName = translationsInfo[23][0]; //'venue'
+    /** Variable contains 'segment', 'venue' or category of permanent hazard.
+     * @type {string}
+     */
+    let featureType = '';
+    /** Variable featuretypeName contains "Segment" or localised name of venue.
+     * @type {string}
+     */
+    let featureTypeName = '';
     /**@type {string}*/
     let cityName = '';
     /**@type {string}*/
     let countryName = '';
     /**@type {string|boolean}*/
     let stateName = '';
-    let selectedIndex = '';
-    let selectionType = '&venues=';
+    let selectedFeatures = '';
+    let selectionType = '';
     let selectedIndex2 = ''; // used for Edit Suggestions
     let selectionType2 = ''; // used for Edit Suggestions
+    /** @type {Number} */
+    let maxLockRank = 0;
     let requiredRank = 0;
     let shouldBeLockedAt = -5;
 
     const center = wmeSDK_STS.Map.getMapCenter();
-    const mapCenter = new OpenLayers.Geometry.Point(center.lon, center.lat);
-    const currentLocation = (new OpenLayers.LonLat(mapCenter.x, mapCenter.y)).toString().replace(',', '&');
+    const currentLocation = `&lon=${center.lon}&lat=${center.lat}`;
 
-    if (!['Validation','BadUR', 'SolvedUR'].includes(iconaction)) {
-        $.each(W.selectionManager.getSelectedWMEFeatures(), function (indx, section) {
-            const data = section._wmeObject;//TODO: ADD WMESDK
-            if (data.type === 'venue') {
-                featureType = data.attributes.categories;
-            }
-            if (selectedIndex !== '') {
-                selectedIndex = selectedIndex + ',';
-            }
-            selectedIndex = selectedIndex + data.attributes.id;
-
-            if (data.type === 'camera') {
-                selectionType = '&cameras=';
-                featureType = 'camera';
-                featureTypeName = translationsInfo[24][0];
-
-            } else if (data.type === 'bigJunction') {
-                selectionType = '&bigJunctions=';
-                featureType = 'JB';
-                featureTypeName = translationsInfo[25][0];
-
-            } else if (data.type === 'mapComment') {
-                selectionType = '&mapComments=';
-                featureType = 'map comment';
-                featureTypeName = translationsInfo[26][0];
-
-            } else if (data.type === 'railroadCrossing') {
-                selectionType = '&railroadCrossings=';
-                featureType = 'Railroad Crossing';
-                featureTypeName = translationsInfo[27][0];
-
-            } else if (data.type === 'restrictedDrivingArea') {
-                selectionType = '&restrictedDrivingAreas=';
-                featureType = 'Restricted Area';
-                featureTypeName = translationsInfo[37][0];
-
-            } else if (data.type === 'segment') {
-                selectionType = '&segments=';
+    // Get here: featureType, selectedFeatures
+    if (['Downlock', 'Lock', 'Closure', 'Open'].includes(iconaction)) {
+        const selection = wmeSDK_STS.Editing.getSelection();
+        switch (selection.objectType) {
+            case 'segment': {
                 featureType = 'segment';
-                featureTypeName = translationsInfo[28][0];
-                shouldBeLockedAt = getShouldLockedAt(data, shouldBeLockedAt);
-            } else {
-                log('unknown data type');
+                featureTypeName = 'segment'.stsTranslate(requestLocale);
+                selectionType = 'segments';
+                const lockRanks = [];
+                selection.ids.forEach((e) => lockRanks.push(wmeSDK_STS.DataModel.Segments.getById({ segmentId: Number(e) }).lockRank));
+                maxLockRank = Math.max(...lockRanks);
+                shouldBeLockedAt = getShouldLockedAt(selection, shouldBeLockedAt); // ToDo: correct
+                if (shouldBeLockedAt === -5) {
+                    shouldBeLockedAt = NaN;
+                }
+                break;
             }
-            count++;
-            if (data.attributes.lockRank !== null && data.attributes.lockRank > requiredRank) {
-                requiredRank = data.attributes.lockRank;
-            } else if (data.attributes.rank > requiredRank) {
-                requiredRank = data.attributes.rank;
+            case 'venue': {
+                featureType = 'venue';
+                featureTypeName = 'venue'.stsTranslate(requestLocale);
+                selectionType = 'venues';
+                maxLockRank = wmeSDK_STS.DataModel.Venues.getById({ venueId: String(selection.ids[0]) }).lockRank;
+                break;
             }
-            const cityId = getCityID(data, featureType);
-            cityName = getCity(cityId);
-            if (cityName == null) {
-                cityName = '';
+            case 'mapComment': {
+                featureType = 'map comment';
+                featureTypeName = 'map comment'.stsTranslate(requestLocale);
+                selectionType = 'mapComments';
+                maxLockRank = wmeSDK_STS.DataModel.MapComments.getById({ mapCommentId: String(selection.ids[0]) }).lockRank;
+                break;
             }
-            countryName = getCountry(cityId);
-            stateName = getStateName(cityId);
-            log('State Name : ' + stateName);
-        });
-        if (shouldBeLockedAt === -5) {
-            shouldBeLockedAt = NaN;
-
+            case 'bigJunction': {
+                featureType = 'JB';
+                featureTypeName = 'JB'.stsTranslate(requestLocale);
+                selectionType = 'bigJunctions';
+                break;
+            }
+            case 'restrictedDrivingArea': {
+                featureType = 'Restricted Area';
+                featureTypeName = 'Restricted Area'.stsTranslate(requestLocale);
+                selectionType = 'restrictedDrivingAreas';
+                break;
+            }
+            default: {
+                log(`getPermaLink(): unknown object type ${selection.objectType}`);
+            }
         }
-    }else if (iconaction === 'Validation') { // Validation request
-        const suggestionID = getEditSuggestionID();
-        const segmentsIDs = uniquifyArray(getSegmentIDsBySuggestionID(suggestionID));
-        selectionType = '&segments=';
-        selectedIndex = segmentsIDs.join(',');
-        selectionType2 = '&editSuggestions=';
-        selectedIndex2 = suggestionID;
-        featureType = 'editSuggestion';
-        featureTypeName = 'Edit Suggestion';
-        const location = getLocationBySegmentID(segmentsIDs[0]);
-        cityName = location.cityName;
-        stateName = location.stateName;
-        countryName = location.countryName;
-        count++;
-    }else if (['BadUR', 'SolvedUR'].includes(iconaction)) {
-        cityName = wmeSDK_STS.DataModel.Cities.getTopCity()?.name;
-        countryName = wmeSDK_STS.DataModel.Countries.getTopCountry()?.name;
-        stateName = wmeSDK_STS.DataModel.States.getTopState()?.name;
-        featureTypeName = translationsInfo[47][0];
+
+        selectedFeatures = selection.ids.join(',');
+        count = selection.ids.length;
+        requiredRank = maxLockRank;
+        // ToDo: Now there is only the first location used (eq. old behaviour); for future all locations should be recognized
+        ({ cityName, stateName, countryName } = getLocation(selection, 'selection'));
     }
-    const PL = text + currentLocation + '&zoomLevel=' + wmeSDK_STS.Map.getZoomLevel() + selectionType + selectedIndex + selectionType2 + selectedIndex2;
+    if (['Validation'].includes(iconaction)) {
+        featureType = 'editSuggestion';
+        featureTypeName = 'Edit Suggestion'.stsTranslate(requestLocale);
+        selectionType = 'editSuggestions';
+        const suggestionId = getEditSuggestionId();
+        ({ cityName, stateName, countryName } = getLocation(suggestionId, 'editSuggestionId'));
+        selectedFeatures = suggestionId;
+    }
+    if (['BadUR', 'SolvedUR'].includes(iconaction)) {
+        featureType = 'mapUpdateRequest';
+        featureTypeName = 'Update Request'.stsTranslate(requestLocale); //ToDo: check
+        selectionType = 'mapUpdateRequest';
+        const urId = getSelectedMapUpdateRequest();
+        ({ cityName, stateName, countryName } = getLocation(urId, 'mapUpdateRequestId'));
+        selectedFeatures = urId;
+    }
+
+    // TODO check if zoomlevel needs change because all selected features must be on screen
+    const PL =  `${wmeBasicURL}${currentLocation}&zoomLevel=${wmeSDK_STS.Map.getZoomLevel()}&${selectionType}=${selectedFeatures}`;
     /**Feature Type Name to send. TODO: check what happens when multiple selections...
      * @type {string} */
-    let type = featureTypeName;
+    let linkText = featureTypeName;
     if (count > 1) {
-        type = count + ' ' + type + translationsInfo[29][0];
+        linkText = `${count} ${linkText}${'s'.stsTranslate(requestLocale)}`;
     } else {
-        type = translationsInfo[30][0] + ' ' + type;
+        linkText = `${'a'.stsTranslate(requestLocale)} ${linkText}`;
     }
     if (requiredRank < 2 && (iconaction.toLowerCase() === 'closure' || iconaction.toLowerCase() === 'open')) {
         requiredRank = 2;
@@ -1173,15 +1267,17 @@ function getPermalinkCleaned(iconaction) {
     requiredRank = (requiredRank + 1);
 
     // Return built array containing all parameters
-    return [PL, type, count, featureType, requiredRank, cityName, countryName, shouldBeLockedAt, stateName];
-}
+    //return [PL, linkText, count, featureType, requiredRank, cityName, countryName, shouldBeLockedAt, stateName];
+    // Return built structuring object containing all parameters
+    return { PL, linkText, count, featureType, requiredRank, cityName, countryName, shouldBeLockedAt, stateName };
+};
 
 /**
  * Checks the version of the scritpt in the browser prior launching a modal if the script has been updates using the {@link _WHATS_NEW_LIST}.  
  * This sets `WMESTSVersion` in `localStorage`.  
  * Till version `2024.10.20.01` being called from {@link init()}.
  */
-function versionCheck() {
+const versionCheck = function () {
     let UpdateNotes = '';
     ///////////////////////////////////////
     //         Check for updates         //
@@ -1199,7 +1295,7 @@ function versionCheck() {
                 UpdateNotes = "What's new?<br />";
             }
             if (UpdateNotes !== '') {
-                UpdateNotes = UpdateNotes + '<br />' + key + ': ' + _WHATS_NEW_LIST[key];
+                UpdateNotes = `${UpdateNotes}<br />${key}: ${_WHATS_NEW_LIST[key]}`;
             }
         }
         UpdateNotes = UpdateNotes + '<br />&nbsp;';
@@ -1209,7 +1305,7 @@ function versionCheck() {
     } else {
         localStorage.setItem('WMESTSVersion', SCRIPT_VERSION);
     }
-}
+};
 
 /**
  * Checks if the user has the required parameters (settings) set. Checks for the existance of WMESTS `localStorage` as the {@link neededparams}.
@@ -1219,7 +1315,7 @@ function checkNeededParams() {
     const neededparams = {
         WMESTSCountry: '',
         WMESTSState: '',
-        WMESTSServer: '',
+        WMESTSServer: ''
     };
     // Inits
     log('Checking the needed parameters');
@@ -1235,7 +1331,7 @@ function checkNeededParams() {
 
     // How was the check going on?
     if (!check) {
-        WazeWrap.Alerts.error(SCRIPT_NAME, translationsInfo[22][0]);
+        WazeWrap.Alerts.error(SCRIPT_NAME, 'Missing settings, please set all of the following dropdown in the left panel'.stsTranslate(requestLocale));
     }
     return check;
 }
@@ -1248,7 +1344,7 @@ function checkNeededParams() {
  * @param {("Text"|"Forum"|"")} first First try... TODO: Check why empty string...
  * @param {("Text"|"Forum"|"")} fallback One or another after a failure TODO: Check why empty string..
  */
-function sendToDiscord(params, first, fallback) {
+const sendToDiscord = function (params, first, fallback) {
 // Function to send request to Discord
 // auto-detecting type of channel (Forum channel or Text channel)
     const channelType = first;
@@ -1286,7 +1382,7 @@ function sendToDiscord(params, first, fallback) {
           });
       })
       .then(function () {
-          log('Request successfully send to ' + channelType + ' channel');
+          log(`Request successfully send to ${channelType} channel`);
           localStorage.setItem('WMESTSChannelType', channelType);
           sent++;
       })
@@ -1298,39 +1394,41 @@ function sendToDiscord(params, first, fallback) {
                       switch (err.request.response.code) {
                           case 220001: // thread_name used in text channel
                           case 220003: // missing thread_name used in forum channel
-                              log('Request failed sending to ' + channelType + ' channel' + ((fallback) ? '; now trying ' + fallback + ' channel' : ''));
+                              log(`Request failed sending to ${channelType} channel${(fallback) ? `; now trying ${fallback} channel` : ''}`);
                               return sendToDiscord(params, fallback, '');
                           case undefined:
                               log('Unsupported request - Response: ' + JSON.stringify(err.request.response));
                               localStorage.setItem('WMESTSChannelType', '');
                               break;
                           default:
-                              log('Unsupported request - Errorcode: ' + err.request.response.code + ' - Message: ' + err.request.response.message);
+                              log(`Unsupported request - Errorcode: ${err.request.response.code} - Message: ${err.request.response.message}`);
                               localStorage.setItem('WMESTSChannelType', '');
                       }
                       break;
                   default:
-                      log('Error sending request - Errorcode: ' + err.request.response.code + ' - Message: ' + err.request.response.message);
+                      log(`Error sending request - Errorcode: ${err.request.response.code} - Message: ${err.request.response.message}`);
               }
           } else {
               log('Error sending request - No reponse received');
           }
       });
-}
+};
+
 /**
 * Create the {@link DOWNLOCK_ICON} and {@link RE_LOCK_ICON} into the `lock-edit-view` class.
 */
-function addLockIcons() {
-    $('.lock-edit-view').after('<div id="WMESTSlock">' + DOWNLOCK_ICON + '&nbsp;' + RE_LOCK_ICON + '</div>');
+const addLockIcons = function () {
+    $('.lock-edit-view').after(`<div id="WMESTSlock">${DOWNLOCK_ICON}&nbsp;${RE_LOCK_ICON}</div>`);
     $('.Lock').attr('title', 'Ask for lock'.stsTranslate(displayLocale));
     $('.Downlock').attr('title', 'Ask for downlock'.stsTranslate(displayLocale));
     log('Lock icons added');
-}
+};
+
 /**
 * Create the {@link CLOSURE_ICON} and {@link OPEN_ICON} into the `closures-list` class.
 */
-function addClosureIcons() {
-    $('.closures-list').before('<div id="WMESTSclosures">' + CLOSURE_ICON + '&nbsp;' + OPEN_ICON + '</div>');
+const addClosureIcons = function () {
+    $('.closures-list').before(`<div id="WMESTSclosures">${CLOSURE_ICON}&nbsp;${OPEN_ICON}</div>`);
     $('.closures-list').height('auto');
     if(wmeSDK_STS.DataModel.RoadClosures.getAll().length === 0) {
         $('.closures-list').height('auto');
@@ -1338,13 +1436,14 @@ function addClosureIcons() {
     $('.Closure').attr('title', 'Ask for closure'.stsTranslate(displayLocale));
     $('.Open').attr('title', 'Ask for opening a closure'.stsTranslate(displayLocale));
     log('Closure icons added');
-}
+};
+
 /**
  * Create the {@link VALIDATION_ICON} into the suggestion panel.  
- * Till version `2024.10.20.01` being called from {@link init()}. 
+ * Till version `2024.10.20.01` being called from {@link init()}.  
  * Till version '2024.11.09.01 (Beta)' function named as appendValidationIcon.
  */
-function addValidationIcon() {
+const addValidationIcon = function () {
     const panel = getEditSuggestionPanel();
     if (panel === null) {
         setTimeout(addValidationIcon, 100);
@@ -1365,34 +1464,38 @@ function addValidationIcon() {
         Loadactions();
         log('Validation icon added');
     }
-}
+};
 
 /**
  * Create the {@link UR_NOT_IDENTIFIED_ICON} and {@link UR_SOLVED_ICON} into the UR panel.  
  * Till version `2024.10.20.01` being called from {@link init()}.
  */
-function addUpdateRequestIcons() {
+const addUpdateRequestIcons = function () {
     const badUR = UR_NOT_IDENTIFIED_ICON.replace(/Request to Close as Not Identified/, 'Request to Close as Not Identified'.stsTranslate(displayLocale));
     const solvedUR = UR_SOLVED_ICON.replace(/Request to Solve/, 'Request to Solve'.stsTranslate(displayLocale));
     const iconsDIV = `
-    <div>
-        <wz-button size="sm" color="clear-icon" class="focus">
+    <div class='WMESTSAction'>
+        <wz-button size='sm' color='clear-icon' class='focus'>
             ${badUR}
         </wz-button>
-        <wz-button size="sm" color="clear-icon" class="focus">
+        <wz-button size='sm' color='clear-icon' class='focus'>
             ${solvedUR}
         </wz-button>
     </div>`;
     const UR = document.querySelector('.mapUpdateRequest .additional-attributes');
+    const oldIcon = UR.parentElement.querySelector('.WMESTSAction');
+    if (oldIcon) {
+        oldIcon.remove();
+    }
     UR.insertAdjacentHTML('afterend', iconsDIV);
     log('UR icons added');
-}
+};
 
 /**
  * Gets the WMESTS clicked button by ID `WMESTSActionButton` and stablishes which `class` selector is it for construct.
  * @param {Event} e
  */
-function iconActionHandler(e) {
+const iconActionHandler = function (e) {
     const target = e.target;
     const iconAction = /**@type {Element}*/(target).getAttribute('class');
     log('click on ' + iconAction);
@@ -1400,7 +1503,7 @@ function iconActionHandler(e) {
         log('Params set sent=' + sent);
         if (sent >= 1) {
             log('already sent');
-            if (confirm(translationsInfo[17][0] + ' ?')) {
+            if (confirm('Request already sent, send again'.stsTranslate(requestLocale) + ' ?')) {
                 log('send again');
                 sent=0;
             }
@@ -1411,13 +1514,13 @@ function iconActionHandler(e) {
     } else {
         $('.slack-settings-tab').trigger('click');
     }
-}
+};
 
 /**
  * Checks for the the Edit Suggestion Panel Element via que `querySelector` native method.
  * @returns {?Element}
  */
-function getEditSuggestionPanel() {
+const getEditSuggestionPanel = function () {
     const panel = document.querySelector('[id="panel-container"] > [class="panel show"] > [class^="panel"]');
     const img = panel?.querySelector('[class^="suggestionCallToActions"]');
     if (img) {
@@ -1425,13 +1528,13 @@ function getEditSuggestionPanel() {
     } else {
         return null;
     }
-}
+};
 
 /**
  * Returns the edit suggestion ID or null
  * @returns {string}
  */
- function getEditSuggestionID() {
+ const getEditSuggestionId = function () {
     const container = getEditSuggestionPanel();
     const header = container.querySelector('[class^="subHeader"]');
     let suggestionID = null;
@@ -1439,14 +1542,14 @@ function getEditSuggestionPanel() {
         suggestionID = header.childNodes[1].textContent.replace('ID: ', '');
     }
     return suggestionID;
-}
+};
 
 /**
  * Returns the edit suggestion of a given suggestion ID or null
  * @param {string} suggestionID
  * @returns {object}
  */
-function getEditSuggestionByID(suggestionID) {
+const getEditSuggestionByID = function (suggestionID) {
     const suggestionsArray = W.selectionManager.model.editSuggestions.getObjectArray();//Missing WME SDK. Request
     const suggestion = suggestionsArray.filter(s => {
         return s.getAttribute('id') === suggestionID;
@@ -1456,7 +1559,7 @@ function getEditSuggestionByID(suggestionID) {
     } else {
         return null;
     }
-}
+};
 
 /**
  * Returns an edit suggestion attribute of a given suggestion ID or null
@@ -1464,7 +1567,7 @@ function getEditSuggestionByID(suggestionID) {
  * @param {string} attributeKey
  * @returns {string}
  */
-function getEditSuggestionAttributeByID(suggestionID, attributeKey) {
+const getEditSuggestionAttributeById = function (suggestionID, attributeKey) {
     let attributeValue = null;
     const suggestionsArray = W.selectionManager.model.editSuggestions.getObjectArray();//Missing WME SDK. Request
     const suggestion = suggestionsArray.filter(s => {
@@ -1474,14 +1577,14 @@ function getEditSuggestionAttributeByID(suggestionID, attributeKey) {
         attributeValue = suggestion.getAttribute(attributeKey);
     }
     return attributeValue;
-}
+};
 
 /**
  * Returns the segment ids of all affected segments of a given suggestion by ID
  * @param {string} suggestionID
  * @returns {array}
  */
-function getSegmentIDsBySuggestionID(suggestionID) {
+const getSegmentIdsBySuggestionId = function (suggestionID) {
     const suggestionsArray = W.selectionManager.model.editSuggestions.getObjectArray();//Missing WME SDK. Request
     const suggestion = suggestionsArray.filter(s => {
         return s.getAttribute('id') === suggestionID;
@@ -1492,35 +1595,178 @@ function getSegmentIDsBySuggestionID(suggestionID) {
             segments.push(Number(e.objectId));
         });
     });
-    return segments;
-}
+    return uniquifyArray(segments);
+};
 
 /**
  * Returns an array with removed duplicate entries
  * @param {array} array
  * @returns {array}
 */
-function uniquifyArray(array) {
+const uniquifyArray = function (array) {
     return [...new Set(array)];
 }
 
 /**
- * Get Cityname, Statename and Countryname from segmentID
- * @param {number} segmentID
- * @returns {object}
+ * Get Locations from selection
+ * @param {WmeSDK.Selection} selection
+ * @returns {Array.<object>}
  */
-function getLocationBySegmentID(segmentID) {
+const getLocationsByIds = function (selection) {
+    const locations = [];
+    selection.ids.forEach(id => {
+        // way to get cityId depends on objectType
+        let cityId = 0;
+        switch (selection.objectType) {
+            case 'segment':
+            case 'venue': {
+                const addressObject = getAddressObject(id, selection.objectType);
+                if ((addressObject !== null) && (!addressObject.isEmpty)) {
+                    cityId = addressObject.city.id;
+                }
+                break;
+            }
+            case 'bigJunction': {
+                const obj = wmeSDK_STS.DataModel.BigJunctions.getById({ bigJunctionId: id });
+                if ((obj !== null)) {
+                    cityId = obj.cityId;
+                }
+                break;
+            }
+            case 'mapComment': {
+                noop();
+            }
+            default:
+                log(`getLocationsByIds(): unsupported objectType ${selection.objectType}`);
+        }
+        const cityName = getCityName(cityId);
+        const stateName = getStateName(cityId);
+        const countryName = getCountryName(cityId);
+        locations.push({ cityName, stateName, countryName });
+    });
+    return uniquifyArray(locations);
+};
+
+/**
+ * Wrapper to get Cityname, Statename and Countryname from given parameter
+ * @param {WmeSDK.Selection|string|number} input
+ * @param {string} inputtype
+ * @returns {{ cityName: string, stateName: string, countryName: string }}
+ */
+const getLocation = function (input, inputtype) {
+    let location = {};
     let cityName = '';
     let stateName = '';
     let countryName = '';
-    const segmentAddress = wmeSDK_STS.DataModel.Segments.getAddress({segmentId : segmentID});
-    if ((segmentAddress) && (!segmentAddress.isEmpty)) {
-        cityName = (!segmentAddress.city.isEmpty) ? segmentAddress.city.name : '';
-        stateName = (!segmentAddress.state.isEmpty) ? segmentAddress.state.name : '';
-        countryName = (!segmentAddress.country.isEmpty) ? segmentAddress.country.name : '';
+    if (inputtype == null) {
+        log(`getLocation: inputtype is undefined or null`);
+        throw new Error(`getLocation: inputtype is undefined or null`);
     }
-    return {cityName, stateName, countryName};
-}
+    switch (inputtype) {
+        case 'selection': {
+            if (!(input.hasOwnProperty('objectType'))) {
+                log(`getlocation: wrong input parameters. inputtype is ${inputtype} but ${input} does not have property 'objecttype'`);
+                throw new Error (`getlocation: wrong input parameters. inputtype is ${inputtype} but ${input} does not have property 'objecttype'`);
+            }
+            const locations = [];
+            input.ids.forEach(id => {
+                // way to get cityId depends on inputType
+                const cityId = getCityId(input, 'selection');
+                cityName = getCityName(cityId);
+                stateName = getStateName(cityId);
+                countryName = getCountryName(cityId);
+                locations.push({ cityName, stateName, countryName });
+            });
+            // return first location
+            location = uniquifyArray(locations)[0];
+            break;
+        }
+        case 'arrayOfSegmentIds': {
+            const locations = [];
+            input.forEach(id => {
+                const cityId = getCityId(input, 'segmentId');
+                cityName = getCityName(cityId);
+                stateName = getStateName(cityId);
+                countryName = getCountryName(cityId);
+                locations.push({ cityName, stateName, countryName });
+            });
+            // return first location
+            location = uniquifyArray(locations)[0];
+            break;
+        }
+        case 'segmentId': {
+            const cityId = getCityId(input, 'segmentId');
+            cityName = getCityName(cityId);
+            stateName = getStateName(cityId);
+            countryName = getCountryName(cityId);
+            location = { cityName, stateName, countryName };
+            break;
+        }
+        case 'venueId': {
+            const cityId = getCityId(input, 'venueId');
+            cityName = getCityName(cityId);
+            stateName = getStateName(cityId);
+            countryName = getCountryName(cityId);
+            location = { cityName, stateName, countryName };
+            break;
+        }
+        case 'mapUpdateRequestId': {
+            const cityId = getCityId(input, 'MapUpdateRequestId');
+            cityName = getCityName(cityId);
+            stateName = getStateName(cityId);
+            countryName = getCountryName(cityId);
+            location = { cityName, stateName, countryName };
+            break;
+        }
+        case 'editSuggestionId': {
+            const cityId = getCityId(input, 'EditSuggestionId');
+            cityName = getCityName(cityId);
+            stateName = getStateName(cityId);
+            countryName = getCountryName(cityId);
+            location = { cityName, stateName, countryName };
+            break;
+        }
+        default: {
+            log(`getlocation: inputtype '${inputtype}' is unknown`);
+        }
+    }
+    return { cityName : location.cityName, stateName: location.stateName, countryName: location.countryName };
+};
+
+
+/**
+ * Function returns the address object of the given segment id.  
+ * @param {DataModelObject|string|number} id
+ * @param {string} objectType
+ * @returns {BaseAddress|null}
+ */
+
+const getAddressObject = function (id, objectType) {
+    let addressObject = {};
+    if (objectType === 'segment') {
+        if (typeof id !== 'number') {
+            id = Number(id.toString());
+        }
+        addressObject = wmeSDK_STS.DataModel.Segments.getAddress({ segmentId: id});
+    } else if (objectType === 'venue') {
+        addressObject = wmeSDK_STS.DataModel.Venues.getAddress({ venueId: id});
+    } else {
+        addressObject = null;
+    }
+    return addressObject;
+};
+
+/** Function returns id of map update request selected in panel or null if no map update request is selected
+ * @returns {number|null}
+*/
+const getSelectedMapUpdateRequest = function () {
+    const urs = W.selectionManager.map.mapUpdateRequestsLayer.features;
+    const ur = urs.filter(e => {
+        return e.attributes.wazeFeature.isSelected === true;
+    });
+    return ur[0]?.attributes.wazeFeature.id ?? null;
+    //return ur[0] ?? null;
+};
 
 /**
  * Function doing nothing. Used with an empty ternary operator.
@@ -1530,7 +1776,7 @@ const noop = ()=>{};
 /**
  * Function to translate text into requested language by lookup in {@link translationsMap}.
  * @param {string} locale locale/language to translate into.
- * @param {*} thisArg 
+ * @param {*} thisArg
  * @returns returns translated text if translation available, otherwise returns original text.
  */
 const translate = function (locale, thisArg) {
@@ -1543,12 +1789,12 @@ const translate = function (locale, thisArg) {
         }
     }
     return translatedText.replace(/"/g, "'");
-}
+};
 
 // @ts-ignore
 String.prototype.stsTranslate = translate;
 
-log("Load");
+log('Load');
 // Script starts here... Inits SDK and Checks for WME Readiness (happens only once when the wme-initialized, wme-logged-in, and wme-map-data-loaded had been dispatched).
 try{
     window.SDK_INITIALIZED
