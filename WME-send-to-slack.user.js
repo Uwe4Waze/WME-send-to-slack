@@ -299,7 +299,7 @@ function init () {
  * Makes click into the requested level for `Lock/Unlock` purposes which will be the {@link wmeStsTo Requested Level}
  * @param {number} [times=1] Times this function has been called. Shall not be used when calling this f(x).
  */
-const autoLockClick = function (times) {
+function autoLockClick (times) {
     times ??= 1; // Starting counter
     if(document.getElementById('lockRank-0') === null && times <= 10) {
         if (times === 10 || document.querySelector('.lock-edit-view > wz-rich-tooltip:nth-child(2) > wz-tooltip:nth-child(1) > wz-tooltip-source:nth-child(1) > wz-tooltip-target:nth-child(1) > wz-checkable-chip:nth-child(1)').hasAttribute('disabled')) {
@@ -330,7 +330,7 @@ const autoLockClick = function (times) {
  * @author GitHub: ordonezgs
  * @async
 */
-const localization = async function () {
+async function localization () {
     /** Localization Spreadsheet SheetName as same as the
      * {@link I18n.locale Browser Locale}
      * @see {@link https://docs.google.com/spreadsheets/d/1kW09NbMJUYU0nNRYUmwsoushZo7I-oQShCfr8hnr_hs/edit?usp=sharing WMESTS Localizations Spreadsheet}
@@ -364,7 +364,7 @@ const localization = async function () {
  * @param {string} locale {@link I18n} locale as the browser locale
  * @async
  */
-const requestTranslations = async function (locale) {
+async function requestTranslations (locale) {
     //Checking if requested language is default english language
     if (['en', 'en-US', 'en-AU', 'en-GB'].includes(locale)) {
         locale = 'Default';
@@ -428,7 +428,7 @@ const requestTranslations = async function (locale) {
  * @returns {number|null} cityId
  * @see DataModelObject SDK class.
  */
-const getCityId = function (input, inputType) {
+function getCityId (input, inputType) {
     let cityId = null;
     // way to get cityId depends on objectType
     switch (inputType) {
@@ -521,7 +521,7 @@ const getCityId = function (input, inputType) {
  * @param {number|null} cityId `City ID` or `0` or `null`
  * @returns {string} cityName
  */
-const getCityName = function (cityId) {
+function getCityName (cityId) {
     /**@type {string} */
     let cityName = '';
     if (cityId !== null) {
@@ -540,7 +540,7 @@ const getCityName = function (cityId) {
  * @param {number|null} cityId `City ID` or `0` or `null`
  * @returns {string} countryName
  */
-const getCountryName = function (cityId) {
+function getCountryName (cityId) {
     if(cityId>0) {
         const countryId = wmeSDK_STS.DataModel.Cities.getById({cityId:cityId})?.countryId;
         return wmeSDK_STS.DataModel.Countries.getById({countryId: countryId})?.name;
@@ -556,7 +556,7 @@ const getCountryName = function (cityId) {
  * @param {number|null} cityId `City ID` or `0` or `null`
  * @returns {string} // StateName or empty string
  */
-const getStateName = function (cityId) {
+function getStateName (cityId) {
     let stateName = '';
     if(wmeSDK_STS.DataModel.Cities.getById({cityId: cityId}) !== null) {
         const stateId = wmeSDK_STS.DataModel.Cities.getById({cityId: cityId})?.stateId;
@@ -569,7 +569,7 @@ const getStateName = function (cityId) {
  * Till version `2024.10.20.01` being called from {@link construct()}
  * @returns {string|null} Reason
  */
-const askReason = function () {
+function askReason () {
     let x=0;
     let reason = '';
     while(x<1) {
@@ -590,7 +590,7 @@ const askReason = function () {
  * Till version `2024.10.20.01` being called from {@link iconActionHandler()}. Also calls {@link sendToDiscord()}
  * @param {("Downlock"|"Lock"|"Validation"|"Closure"|"Open"|"SolvedUR"|"BadUR")} iconAction Usually taken from the `class` HTML tag of the icon button.
  */
-const construct = function (iconAction) {
+function construct (iconAction) {
     log('Construction');
     const answers = getPermalink(iconAction);
     log('Permalink generated');
@@ -955,7 +955,7 @@ function Loadactions() {
  * @param {number} current Always it's `-5` (for some reason...)
  * @returns {number} `ShouldBeLockedAt` as stated in the `RoadType` segment.
  */
-const getShouldLockedAt = function (selection, current){
+function getShouldLockedAt (selection, current){
     /**@type {number} */
     let ShouldBeLockedAt = current;
     const WMESTSCountry = countryDB[localStorage.getItem('WMESTSCountry')];
@@ -989,7 +989,7 @@ const getShouldLockedAt = function (selection, current){
  * Also sets `localStorage` for `WMESTSServer`.
  * Till version `2024.10.20.01` being called from {@link updateStates()} and {@link LoadTab()}
  */
-const updateLanguages = function () {
+function updateLanguages () {
     $('#WMESTSLanguage option').each(function() {
         $(this).remove();
     });
@@ -1021,7 +1021,7 @@ const updateLanguages = function () {
  * Updates the `State` into the Settings tab if country applicable only.
  * Till version `2024.10.20.01` being called from {@link LoadTab()}. Also calls for {@link updateLanguages()}
  */
-const updateStates = function () {
+function updateStates () {
     $('#WMESTSState option').each(function() {
         $(this).remove();
     });
@@ -1052,7 +1052,7 @@ const updateStates = function () {
  * TODO:Next Stage will be Waze SDK.
  * Till version `2024.10.20.01` being called from {@link init()}. Also calls for {@link updateStates()} and {@link updateLanguages()}
  */
-const LoadTab = function () {
+function LoadTab () {
     const COUNTRY_SELECTOR = document.getElementById('WMESTSCountry');
     const STATE_SELECTOR = document.getElementById('WMESTSState');
     const LANGUAGE_SELECTOR = document.getElementById('WMESTSLanguage');
@@ -1136,7 +1136,7 @@ const LoadTab = function () {
  * @author GitHub:Glodenox
  * @author GitHub:Tunisiano18
  */
-const log = function (message, thisscript = `${SCRIPT_NAME} (${SCRIPT_VERSION})`) { // Thanks to Glodenox but enhanced
+function log (message, thisscript = `${SCRIPT_NAME} (${SCRIPT_VERSION})`) { // Thanks to Glodenox but enhanced
     if (typeof message === 'string') {
         console.log(`%c${thisscript} : %c${message}`, 'color:black', 'color:#d97e00');
     } else {
@@ -1152,7 +1152,7 @@ const log = function (message, thisscript = `${SCRIPT_NAME} (${SCRIPT_VERSION})`
  * @param {("Downlock"|"Lock"|"Validation"|"Closure"|"Open"|"SolvedUR"|"BadUR")} iconaction WMESTS Action
  * @returns {{ PL: string, linkText: string, count: number, featureType: string, requiredRank: number, cityName: string, countryName: string, shouldBeLockedAt: number, stateName: string }}
  */
-const getPermalink = function (iconaction) {
+function getPermalink (iconaction) {
     /**@type {string}*/
     const wmeBasicURL = `https://www.waze.com/editor?env=${wmeSDK_STS.Settings.getRegionCode()}`;
     let count = 0;
@@ -1279,7 +1279,7 @@ const getPermalink = function (iconaction) {
  * This sets `WMESTSVersion` in `localStorage`.  
  * Till version `2024.10.20.01` being called from {@link init()}.
  */
-const versionCheck = function () {
+function versionCheck () {
     let UpdateNotes = '';
     ///////////////////////////////////////
     //         Check for updates         //
@@ -1346,7 +1346,7 @@ function checkNeededParams() {
  * @param {("Text"|"Forum"|"")} first First try... TODO: Check why empty string...
  * @param {("Text"|"Forum"|"")} fallback One or another after a failure TODO: Check why empty string..
  */
-const sendToDiscord = function (params, first, fallback) {
+function sendToDiscord (params, first, fallback) {
 // Function to send request to Discord
 // auto-detecting type of channel (Forum channel or Text channel)
     const channelType = first;
@@ -1419,7 +1419,7 @@ const sendToDiscord = function (params, first, fallback) {
 /**
 * Create the {@link DOWNLOCK_ICON} and {@link RE_LOCK_ICON} into the `lock-edit-view` class.
 */
-const addLockIcons = function () {
+function addLockIcons () {
     $('.lock-edit-view').after(`<div id="WMESTSlock">${DOWNLOCK_ICON}&nbsp;${RE_LOCK_ICON}</div>`);
     $('.Lock').attr('title', 'Ask for lock'.stsTranslate(displayLocale));
     $('.Downlock').attr('title', 'Ask for downlock'.stsTranslate(displayLocale));
@@ -1429,7 +1429,7 @@ const addLockIcons = function () {
 /**
 * Create the {@link CLOSURE_ICON} and {@link OPEN_ICON} into the `closures-list` class.
 */
-const addClosureIcons = function () {
+function addClosureIcons () {
     $('.closures-list').before(`<div id="WMESTSclosures">${CLOSURE_ICON}&nbsp;${OPEN_ICON}</div>`);
     $('.closures-list').height('auto');
     if(wmeSDK_STS.DataModel.RoadClosures.getAll().length === 0) {
@@ -1445,7 +1445,7 @@ const addClosureIcons = function () {
  * Till version `2024.10.20.01` being called from {@link init()}.  
  * Till version '2024.11.09.01 (Beta)' function named as appendValidationIcon.
  */
-const addValidationIcon = function () {
+function addValidationIcon () {
     const panel = getEditSuggestionPanel();
     if (panel === null) {
         setTimeout(addValidationIcon, 100);
@@ -1472,7 +1472,7 @@ const addValidationIcon = function () {
  * Create the {@link UR_NOT_IDENTIFIED_ICON} and {@link UR_SOLVED_ICON} into the UR panel.  
  * Till version `2024.10.20.01` being called from {@link init()}.
  */
-const addUpdateRequestIcons = function () {
+function addUpdateRequestIcons () {
     const badUR = UR_NOT_IDENTIFIED_ICON.replace(/Request to Close as Not Identified/, 'Request to Close as Not Identified'.stsTranslate(displayLocale));
     const solvedUR = UR_SOLVED_ICON.replace(/Request to Solve/, 'Request to Solve'.stsTranslate(displayLocale));
     const iconsDIV = `
@@ -1497,7 +1497,7 @@ const addUpdateRequestIcons = function () {
  * Gets the WMESTS clicked button by ID `WMESTSActionButton` and stablishes which `class` selector is it for construct.
  * @param {Event} e
  */
-const iconActionHandler = function (e) {
+function iconActionHandler (e) {
     const target = e.target;
     const iconAction = /**@type {Element}*/(target).getAttribute('class');
     log('click on ' + iconAction);
@@ -1522,7 +1522,7 @@ const iconActionHandler = function (e) {
  * Checks for the the Edit Suggestion Panel Element via que `querySelector` native method.
  * @returns {?Element}
  */
-const getEditSuggestionPanel = function () {
+function getEditSuggestionPanel () {
     const panel = document.querySelector('[id="panel-container"] > [class="panel show"] > [class^="panel"]');
     const img = panel?.querySelector('[class^="suggestionCallToActions"]');
     if (img) {
@@ -1536,7 +1536,7 @@ const getEditSuggestionPanel = function () {
  * Returns the edit suggestion ID or null
  * @returns {string}
  */
- const getEditSuggestionId = function () {
+function  getEditSuggestionId () {
     const container = getEditSuggestionPanel();
     const header = container.querySelector('[class^="subHeader"]');
     let suggestionID = null;
@@ -1551,7 +1551,7 @@ const getEditSuggestionPanel = function () {
  * @param {string} suggestionID
  * @returns {object}
  */
-const getEditSuggestionByID = function (suggestionID) {
+function getEditSuggestionByID (suggestionID) {
     const suggestionsArray = W.selectionManager.model.editSuggestions.getObjectArray();//Missing WME SDK. Request
     const suggestion = suggestionsArray.filter(s => {
         return s.getAttribute('id') === suggestionID;
@@ -1569,7 +1569,7 @@ const getEditSuggestionByID = function (suggestionID) {
  * @param {string} attributeKey
  * @returns {string}
  */
-const getEditSuggestionAttributeById = function (suggestionID, attributeKey) {
+function getEditSuggestionAttributeById (suggestionID, attributeKey) {
     let attributeValue = null;
     const suggestionsArray = W.selectionManager.model.editSuggestions.getObjectArray();//Missing WME SDK. Request
     const suggestion = suggestionsArray.filter(s => {
@@ -1586,7 +1586,7 @@ const getEditSuggestionAttributeById = function (suggestionID, attributeKey) {
  * @param {string} suggestionID
  * @returns {array}
  */
-const getSegmentIdsBySuggestionId = function (suggestionID) {
+function getSegmentIdsBySuggestionId (suggestionID) {
     const suggestionsArray = W.selectionManager.model.editSuggestions.getObjectArray();//Missing WME SDK. Request
     const suggestion = suggestionsArray.filter(s => {
         return s.getAttribute('id') === suggestionID;
@@ -1605,7 +1605,7 @@ const getSegmentIdsBySuggestionId = function (suggestionID) {
  * @param {array} array
  * @returns {array}
 */
-const uniquifyArray = function (array) {
+function uniquifyArray (array) {
     return [...new Set(array)];
 }
 
@@ -1614,7 +1614,7 @@ const uniquifyArray = function (array) {
  * @param {WmeSDK.Selection} selection
  * @returns {Array.<object>}
  */
-const getLocationsByIds = function (selection) {
+function getLocationsByIds (selection) {
     const locations = [];
     selection.ids.forEach(id => {
         // way to get cityId depends on objectType
@@ -1655,7 +1655,7 @@ const getLocationsByIds = function (selection) {
  * @param {string} inputtype
  * @returns {{ cityName: string, stateName: string, countryName: string }}
  */
-const getLocation = function (input, inputtype) {
+function getLocation (input, inputtype) {
     let cityId = null;
     let location = {};
     let cityName = '';
@@ -1711,7 +1711,7 @@ const getLocation = function (input, inputtype) {
  * @returns {BaseAddress|null}
  */
 
-const getAddressObject = function (id, objectType) {
+function getAddressObject (id, objectType) {
     let addressObject = {};
     if (objectType === 'segment') {
         if (typeof id !== 'number') {
@@ -1729,7 +1729,7 @@ const getAddressObject = function (id, objectType) {
 /** Function returns id of map update request selected in panel or null if no map update request is selected
  * @returns {number|null}
 */
-const getSelectedMapUpdateRequest = function () {
+function getSelectedMapUpdateRequest () {
     const urs = W.selectionManager.map.mapUpdateRequestsLayer.features;
     const ur = urs.filter(e => {
         return e.attributes.wazeFeature.isSelected === true;
@@ -1741,7 +1741,7 @@ const getSelectedMapUpdateRequest = function () {
 /**
  * Function doing nothing. Used with an empty ternary operator.
  */
-const noop = ()=>{};
+function noop ()=>{};
 
 /**
  * Function to translate text into requested language by lookup in {@link translationsMap}.
@@ -1749,7 +1749,7 @@ const noop = ()=>{};
  * @param {*} thisArg
  * @returns returns translated text if translation available, otherwise returns original text.
  */
-const translate = function (locale, thisArg) {
+function translate (locale, thisArg) {
     let translatedText = thisArg ?? this.toString();
     if (translationsMap.has(translatedText)) {
         let tMap = new Map();
