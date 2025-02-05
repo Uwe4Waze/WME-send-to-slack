@@ -189,7 +189,7 @@ const EDITOR_ICONS = Object.freeze({
  * 9. Checks version {@link versionCheck()}
  *
  */
-const init = function () {
+function init () {
     log('WME chargé');
     if (!WazeWrap?.Ready) {
         setTimeout(init, 800);
@@ -438,13 +438,14 @@ const getCityId = function (input, inputType) {
                 log(`getlocation: wrong input parameters. inputtype is ${inputType} but ${input} does not have property 'objecttype'`);
                 throw new Error(`getlocation: wrong input parameters. inputtype is ${inputType} but ${input} does not have property 'objecttype'`);
             }
-            input.ids.forEach(id => {
+            // returns first valid cityId
+            input.ids.every(id => {
                 // way to get cityId depends on objectType
                 switch (input.objectType) {
                     case 'segment':
                     case 'venue': {
                         const addressObject = getAddressObject(id, input.objectType);
-                        if ((addressObject !== null) && (!addressObject.isEmpty)) {
+                        if ((addressObject !== null) && (!addressObject.isEmpty) && (!addressObject.city.isEmpty)) {
                             cityId = addressObject.city.id;
                         }
                         break;
@@ -470,20 +471,21 @@ const getCityId = function (input, inputType) {
                     default:
                         log(`getCityId: unsupported objectType ${input.objectType}`);
                 }
+                return !(cityId !== null); // return false to end iteration if valid cityId is found
             });
             break;
         }
         case 'segment' :
         case 'segmentId': {
             const addressObject = getAddressObject(input, 'segment');
-            if ((addressObject !== null) && (!addressObject.isEmpty)) {
+            if ((addressObject !== null) && (!addressObject.isEmpty) && (!addressObject.city.isEmpty)) {
                 cityId = addressObject.city.id;
             }
             break;
         }
         case 'venueId': {
             const addressObject = getAddressObject(input, 'venue');
-            if ((addressObject !== null) && (!addressObject.isEmpty)) {
+            if ((addressObject !== null) && (!addressObject.isEmpty) && (!addressObject.city.isEmpty)) {
                 cityId = addressObject.city.id;
             }
             break;
@@ -1654,6 +1656,7 @@ const getLocationsByIds = function (selection) {
  * @returns {{ cityName: string, stateName: string, countryName: string }}
  */
 const getLocation = function (input, inputtype) {
+    let cityId = null;
     let location = {};
     let cityName = '';
     let stateName = '';
@@ -1663,73 +1666,40 @@ const getLocation = function (input, inputtype) {
         throw new Error(`getLocation: inputtype is undefined or null`);
     }
     switch (inputtype) {
+        // way to get cityId depends on inputType
         case 'selection': {
             if (!(input.hasOwnProperty('objectType'))) {
                 log(`getlocation: wrong input parameters. inputtype is ${inputtype} but ${input} does not have property 'objecttype'`);
-                throw new Error (`getlocation: wrong input parameters. inputtype is ${inputtype} but ${input} does not have property 'objecttype'`);
+                throw new Error(`getlocation: wrong input parameters. inputtype is ${inputtype} but ${input} does not have property 'objecttype'`);
             }
-            const locations = [];
-            input.ids.forEach(id => {
-                // way to get cityId depends on inputType
-                const cityId = getCityId(input, 'selection');
-                cityName = getCityName(cityId);
-                stateName = getStateName(cityId);
-                countryName = getCountryName(cityId);
-                locations.push({ cityName, stateName, countryName });
-            });
-            // return first location
-            location = uniquifyArray(locations)[0];
-            break;
-        }
-        case 'arrayOfSegmentIds': {
-            const locations = [];
-            input.forEach(id => {
-                const cityId = getCityId(input, 'segmentId');
-                cityName = getCityName(cityId);
-                stateName = getStateName(cityId);
-                countryName = getCountryName(cityId);
-                locations.push({ cityName, stateName, countryName });
-            });
-            // return first location
-            location = uniquifyArray(locations)[0];
+            // will return id of first non-empty city
+            cityId = getCityId(input, 'selection');
             break;
         }
         case 'segmentId': {
-            const cityId = getCityId(input, 'segmentId');
-            cityName = getCityName(cityId);
-            stateName = getStateName(cityId);
-            countryName = getCountryName(cityId);
-            location = { cityName, stateName, countryName };
+            cityId = getCityId(input, 'segmentId');
             break;
         }
         case 'venueId': {
-            const cityId = getCityId(input, 'venueId');
-            cityName = getCityName(cityId);
-            stateName = getStateName(cityId);
-            countryName = getCountryName(cityId);
-            location = { cityName, stateName, countryName };
+            cityId = getCityId(input, 'venueId');
             break;
         }
         case 'mapUpdateRequestId': {
-            const cityId = getCityId(input, 'MapUpdateRequestId');
-            cityName = getCityName(cityId);
-            stateName = getStateName(cityId);
-            countryName = getCountryName(cityId);
-            location = { cityName, stateName, countryName };
+            cityId = getCityId(input, 'MapUpdateRequestId');
             break;
         }
         case 'editSuggestionId': {
-            const cityId = getCityId(input, 'EditSuggestionId');
-            cityName = getCityName(cityId);
-            stateName = getStateName(cityId);
-            countryName = getCountryName(cityId);
-            location = { cityName, stateName, countryName };
+            cityId = getCityId(input, 'EditSuggestionId');
             break;
         }
         default: {
             log(`getlocation: inputtype '${inputtype}' is unknown`);
         }
     }
+    cityName = getCityName(cityId);
+    stateName = getStateName(cityId);
+    countryName = getCountryName(cityId);
+    location = { cityName, stateName, countryName };
     return { cityName : location.cityName, stateName: location.stateName, countryName: location.countryName };
 };
 
@@ -1785,7 +1755,7 @@ const translate = function (locale, thisArg) {
         let tMap = new Map();
         tMap = translationsMap.get(translatedText);
         if (tMap.has(locale)) {
-            translatedText = tMap.get(locale);
+            translatedText = tMap.get(locale) ?? translatedText;
         }
     }
     return translatedText.replace(/"/g, "'");
