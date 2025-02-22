@@ -652,7 +652,7 @@ function construct (iconAction) {
             if (parseInt(details) < -1 || parseInt(details) > 6 || isNaN(parseInt(details))) {//Invalid Level entered Warning...
                 log('Invalid Details, nothing sent. Kill Switch Activated.');
                 //Please only enter numbers between -1 and 6 for Lock/Unlock required/request level
-                WazeWrap.Alerts.warning(SCRIPT_NAME, 'Please only enter numbers between -1 and 6 for Lock/Unlock required/request level'.stsTranslate(requestLocale));
+                WazeWrap.Alerts.warning(SCRIPT_NAME, 'Please only enter numbers between -1 and 6 for Lock/Unlock required/request level'.stsTranslate(displayLocale));
                 abort = true;
                 log('Kill Switch Activated.');
             }
@@ -681,7 +681,7 @@ function construct (iconAction) {
             //Alert the editor if he can edit himself
             const lvlEditor = wmeSDK_STS.State.getUserInfo()?.rank+1;
             if (lvlEditor >= requiredLevel && iconAction !== 'Validation') {
-                if (confirm('You can perform this edit. Do you wish to continue?'.stsTranslate(requestLocale)) === false) {//"You can perform this edit. Do you wish to continue?"
+                if (confirm('You can perform this edit. Do you wish to continue?'.stsTranslate(displayLocale)) === false) {//"You can perform this edit. Do you wish to continue?"
                     log('User can edit, so no edit is sent.');
                     abort = true;
                     log('Kill Switch Activated');
@@ -760,7 +760,7 @@ function construct (iconAction) {
     log(details);
     if (permalink.indexOf('-100') >= 0 ) {
         abort = true;
-        WazeWrap.Alerts.error(SCRIPT_NAME, "Some segments aren't saved, please save them and try again".stsTranslate(requestLocale));//"Some segments aren't saved, please save them and try again"
+        WazeWrap.Alerts.error(SCRIPT_NAME, "Some segments aren't saved, please save them and try again".stsTranslate(displayLocale));//"Some segments aren't saved, please save them and try again"
     }
     //const PROFILE_URL_WME = "https://www.waze.com/user/editor/"; // PREVIOUS VERSION..
     const USER_NAME_WME = wmeSDK_STS.State.getUserInfo()?.userName ?? 'ERROR';
@@ -1333,7 +1333,7 @@ function checkNeededParams() {
 
     // How was the check going on?
     if (!check) {
-        WazeWrap.Alerts.error(SCRIPT_NAME, 'Missing settings, please set all of the following dropdown in the left panel'.stsTranslate(requestLocale));
+        WazeWrap.Alerts.error(SCRIPT_NAME, 'Missing settings, please set all of the following dropdown in the left panel'.stsTranslate(displayLocale));
     }
     return check;
 }
@@ -1505,7 +1505,7 @@ function iconActionHandler (e) {
         log('Params set sent=' + sent);
         if (sent >= 1) {
             log('already sent');
-            if (confirm('Request already sent, send again'.stsTranslate(requestLocale) + ' ?')) {
+            if (confirm('Request already sent, send again'.stsTranslate(displayLocale) + ' ?')) {
                 log('send again');
                 sent=0;
             }
@@ -1741,7 +1741,7 @@ function getSelectedMapUpdateRequest () {
 /**
  * Function doing nothing. Used with an empty ternary operator.
  */
-function noop ()=>{};
+function noop () {};
 
 /**
  * Function to translate text into requested language by lookup in {@link translationsMap}.
