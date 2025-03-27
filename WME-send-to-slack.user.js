@@ -78,7 +78,7 @@ const SCRIPT_VERSION = GM_info.script.version;
 /** Any `ID` string for creating the WME Tab as documented in the WME API Docs OR an script ID for initializing the WMESDK. Just a Global const WMESTS in case of needing a change in the future. @type {string} @constant*/
 const SCRIPT_ID = 'WME:STS';
 /**
- * @type {WmeSDK} Used to get {@link getWmeSdk()}
+ * @type {import("./sdkWME").WmeSDK} Used to get {@link getWmeSdk()}
  * @constant
  */
 let wmeSDK_STS;
@@ -175,6 +175,8 @@ const EDITOR_ICONS = Object.freeze({
     6: 'https://storage.googleapis.com/wazeopedia-files/6/6b/25_Map_editor_6.png',
     7: ''
 });
+let WMESTStrings = {}//TODO: Delete
+let actualStrings = new Map();//TODO: Delete
 
 /**
  * **Main program function** - Initialization.  
@@ -311,7 +313,7 @@ function autoLockClick (times) {
         log("Unable to get Lock Ranks or Tab is still loading so we'll wait");
     }else {
        const levelTo = String(wmeStsTo-1);
-       /**@type {string} JQuery selector for clicking the desired level.*/
+       /**@type {JQuery.Selector} JQuery selector for clicking the desired level.*/
        const wmeLockLvl = (wmeStsTo >= 1) ? ('#lockRank-' + levelTo) : ('.lock-level-selector > wz-checkable-chip:nth-child(1)');
        log('Click on ' + wmeLockLvl);
        //document.querySelector("#segment-edit-general > form > div.lock-edit")
@@ -420,10 +422,59 @@ async function requestTranslations (locale) {
     });
 };
 
+function newRequestTranslations(){
+    fetch(`${sheetsAPI.link}${sheetsAPI.sheet}?key=${sheetsAPI.key}`).then(
+        (response)=>{
+            return response.json()
+        }
+    ).then(
+        (dataResponse)=>{
+            /**@type {gapi.client.sheets.Spreadsheet}*/
+            let WMESTSpreadheet = dataResponse
+            let WMESTS_AVAILABLE_SHEETS = []
+            WMESTSpreadheet.sheets.forEach(sheet => {
+                if (sheet.properties.tabColor?.green === 1){
+                    WMESTS_AVAILABLE_SHEETS.push(sheet.properties.title)
+                }
+            });
+            WMESTS_AVAILABLE_SHEETS.forEach(
+                sheetName=>{
+                    fetch(`${sheetsAPI.link}${sheetsAPI.sheet}/values/${sheetName}!${sheetsAPI.range}?key=${sheetsAPI.key}`)
+                    .then(
+                        response=>{
+                            return response.json()
+                        }
+                    )
+                    .then(
+                        dataResponse=>{
+                            /**@type {gapi.client.sheets.ValueRange}*/
+                            let WMESTSheetInfo = dataResponse
+                            WMESTStrings[sheetName] = WMESTSheetInfo.values.flat()
+                        }
+                    )
+                }
+            )
+        }
+    )
+}
+
+async function reloadLanguage(isoCode) {
+    for (const defaultString of WMESTStrings["Default"]) {
+        /**@type {Array}*/(WMESTStrings[isoCode]).forEach(
+            translatedString=>{
+                actualStrings.set(defaultString, translatedString)
+            }
+        )   
+    }
+}
+
+function getString(englishString) {
+    return actualStrings.get(englishString) || englishString
+}
 /**
  * Get the `cityId` from the `DataModelObject.attributes` from a Segment or a Venue with the associated `StreetID` of the {@link W.DataModelObject}.  
  * Till version `2024.10.20.01` being called from {@link getPermalinkCleaned()}
- * @param {W.DataModelObject|WmeSDK.Selection|string|number} input `DataModelObject` or SDK selection
+ * @param {W.DataModelObject|import("./sdkWME").Selection|string|number} input `DataModelObject` or SDK selection
  * @param {string?} inputType Declares the type of param 'input'
  * @returns {number|null} cityId
  * @see DataModelObject SDK class.
@@ -950,8 +1001,7 @@ function Loadactions() {
 /**
  * Recommended Lock. Gets the previously defined by the community lock level for the segment `roadType`.  
  * Till version `2024.10.20.01` being called from {@link getPermalinkCleaned()}
- * @param {W.DataModelObject|WmeSDK.Selection} selection
- * @param {W.DataModelObject|WmeSDK.Selection} selection
+ * @param {W.DataModelObject|import("./sdkWME").Selection} selection
  * @param {number} current Always it's `-5` (for some reason...)
  * @returns {number} `ShouldBeLockedAt` as stated in the `RoadType` segment.
  */
@@ -1611,7 +1661,7 @@ function uniquifyArray (array) {
 
 /**
  * Get Locations from selection
- * @param {WmeSDK.Selection} selection
+ * @param { import("./sdkWME").Selection} selection
  * @returns {Array.<object>}
  */
 function getLocationsByIds (selection) {
@@ -1760,8 +1810,6 @@ function translate (locale, thisArg) {
     }
     return translatedText.replace(/"/g, "'");
 };
-
-// @ts-ignore
 String.prototype.stsTranslate = translate;
 
 log('Load');
