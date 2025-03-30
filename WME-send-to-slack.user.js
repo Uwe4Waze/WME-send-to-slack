@@ -25,7 +25,6 @@
 // @grant           none
 // ==/UserScript==
 /* global W OpenLayers $ I18n WazeWrap*/
-
 // Updates informations
 const _WHATS_NEW_LIST = Object.freeze({ // New in this version
     '2021.01.07.01': 'Solve closure tab problem',
@@ -94,7 +93,7 @@ let displayLocale = '';
  * Variable to pick up the value of the current WME locale
  * @type {string}
  */
-let requestLocale = 'Default';//TODO: Not used. Erase?
+let requestLocale = 'Default';
 /**
  * This var evals if the {@link Loadactions()} function has been previously called.
  * @type {number}  If so, value changes to 1. This it's Global var WMESTS.
@@ -175,8 +174,6 @@ const EDITOR_ICONS = Object.freeze({
     6: 'https://storage.googleapis.com/wazeopedia-files/6/6b/25_Map_editor_6.png',
     7: ''
 });
-let WMESTStrings = {}//TODO: Delete
-let actualStrings = new Map();//TODO: Delete
 
 /**
  * **Main program function** - Initialization.  
@@ -377,19 +374,18 @@ async function requestTranslations (locale) {
         log(`Translations for ${tstr} already fetched`);
         return;
     }
-    const CONNECT_ONE = `${sheetsAPI.link}${sheetsAPI.sheet}/values/`;
-    const CONNECT_TWO = `!${sheetsAPI.range}?key=${sheetsAPI.key}`;
     tstr = (locale === 'Default') ? 'default language' : `locale: ${locale}`;
     log(`Fetch translations for ${tstr}`);
-    const request = new Request(`${CONNECT_ONE}${locale}${CONNECT_TWO}`);
+    const request = new Request(`${sheetsAPI.link}${sheetsAPI.sheet}/values/${locale}!${sheetsAPI.range}`, {headers: new Headers({"X-goog-api-key": sheetsAPI.key})});
     const response = await fetch(request);
     if (!response.ok) {
         WazeWrap.Alerts.error(SCRIPT_NAME, 'Cannot connect to Google Sheets API');
     }
+    /**@type {gapi.client.sheets.ValueRange} */
     const {values} = await response.json();
     log(`${values.length} rows were fetched from sheet`);
     for (let i = 0; i <= values.length; i++) {
-        const val = values[i];
+        const val = values[i]; //TODO: May be better to do a values.flat()?
         if (!(Array.isArray(val) && val.length)) {
             noop();
         } else {
@@ -422,55 +418,6 @@ async function requestTranslations (locale) {
     });
 };
 
-function newRequestTranslations(){
-    fetch(`${sheetsAPI.link}${sheetsAPI.sheet}?key=${sheetsAPI.key}`).then(
-        (response)=>{
-            return response.json()
-        }
-    ).then(
-        (dataResponse)=>{
-            /**@type {gapi.client.sheets.Spreadsheet}*/
-            let WMESTSpreadheet = dataResponse
-            let WMESTS_AVAILABLE_SHEETS = []
-            WMESTSpreadheet.sheets.forEach(sheet => {
-                if (sheet.properties.tabColor?.green === 1){
-                    WMESTS_AVAILABLE_SHEETS.push(sheet.properties.title)
-                }
-            });
-            WMESTS_AVAILABLE_SHEETS.forEach(
-                sheetName=>{
-                    fetch(`${sheetsAPI.link}${sheetsAPI.sheet}/values/${sheetName}!${sheetsAPI.range}?key=${sheetsAPI.key}`)
-                    .then(
-                        response=>{
-                            return response.json()
-                        }
-                    )
-                    .then(
-                        dataResponse=>{
-                            /**@type {gapi.client.sheets.ValueRange}*/
-                            let WMESTSheetInfo = dataResponse
-                            WMESTStrings[sheetName] = WMESTSheetInfo.values.flat()
-                        }
-                    )
-                }
-            )
-        }
-    )
-}
-
-async function reloadLanguage(isoCode) {
-    for (const defaultString of WMESTStrings["Default"]) {
-        /**@type {Array}*/(WMESTStrings[isoCode]).forEach(
-            translatedString=>{
-                actualStrings.set(defaultString, translatedString)
-            }
-        )   
-    }
-}
-
-function getString(englishString) {
-    return actualStrings.get(englishString) || englishString
-}
 /**
  * Get the `cityId` from the `DataModelObject.attributes` from a Segment or a Venue with the associated `StreetID` of the {@link W.DataModelObject}.  
  * Till version `2024.10.20.01` being called from {@link getPermalinkCleaned()}
@@ -1020,11 +967,11 @@ function getShouldLockedAt (selection, current){
     if (selection.hasOwnProperty('objectType')) {
         const roadTypes = [];
         const lockLevels = [];
-        selection.ids.forEach((e) => roadTypes.push(wmeSDK_STS.DataModel.Segments.getById({segmentId: Number(e)}).roadType));
+        /**@type {import("./sdkWME").Selection}*/(selection).ids.forEach((e) => roadTypes.push(wmeSDK_STS.DataModel.Segments.getById({segmentId: Number(e)}).roadType));
         roadTypes.forEach((e) => lockLevels.push(CountryLockLevel[e]));
         ShouldBeLockedAt = Math.max(...lockLevels);
     } else {
-        const RoadType = selection.attributes.roadType;
+        const RoadType = /**@type {W.DataModelObject}*/(selection).attributes.roadType;
         if(CountryLockLevel[RoadType]) {
             if(CountryLockLevel[RoadType]>ShouldBeLockedAt) {
                 ShouldBeLockedAt = CountryLockLevel[RoadType];
@@ -1220,7 +1167,8 @@ function getPermalink (iconaction) {
     let countryName = '';
     /**@type {string|boolean}*/
     let stateName = '';
-    let selectedFeatures = '';
+    /**@type {string|number} */
+    let selectedFeatures;
     let selectionType = '';
     let selectedIndex2 = ''; // used for Edit Suggestions
     let selectionType2 = ''; // used for Edit Suggestions
@@ -1661,7 +1609,7 @@ function uniquifyArray (array) {
 
 /**
  * Get Locations from selection
- * @param { import("./sdkWME").Selection} selection
+ * @param {import("./sdkWME").Selection} selection
  * @returns {Array.<object>}
  */
 function getLocationsByIds (selection) {
@@ -1701,7 +1649,7 @@ function getLocationsByIds (selection) {
 
 /**
  * Wrapper to get Cityname, Statename and Countryname from given parameter
- * @param {WmeSDK.Selection|string|number} input
+ * @param {import("./sdkWME").Selection|string|number} input
  * @param {string} inputtype
  * @returns {{ cityName: string, stateName: string, countryName: string }}
  */
@@ -1756,9 +1704,9 @@ function getLocation (input, inputtype) {
 
 /**
  * Function returns the address object of the given segment id.  
- * @param {DataModelObject|string|number} id
+ * @param {W.DataModelObject|string|number} id
  * @param {string} objectType
- * @returns {BaseAddress|null}
+ * @returns {import("./sdkWME").BaseAddress|null}
  */
 
 function getAddressObject (id, objectType) {
