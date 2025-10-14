@@ -420,7 +420,7 @@ async function requestTranslations (locale) {
 
 /**
  * Get the `cityId` from the `DataModelObject.attributes` from a Segment or a Venue with the associated `StreetID` of the {@link W.DataModelObject}.  
- * Till version `2024.10.20.01` being called from {@link getPermalinkCleaned()}
+ * Till version `2024.10.20.01` being called from {@link getPermalink()}
  * @param {W.DataModelObject|import("./sdkWME").Selection|string|number} input `DataModelObject` or SDK selection
  * @param {string?} inputType Declares the type of param 'input'
  * @returns {number|null} cityId
@@ -514,7 +514,7 @@ function getCityId (input, inputType) {
 
 /**
  * Gets the `City name` from `City ID`.  
- * Till version `2024.10.20.01` being called from {@link getPermalinkCleaned()}
+ * Till version `2024.10.20.01` being called from {@link getPermalink()}
  * Till version `2024.11.27.01` named as getCity()
  * @param {number|null} cityId `City ID` or `0` or `null`
  * @returns {string} cityName
@@ -533,7 +533,7 @@ function getCityName (cityId) {
 
 /**
  * Get Country name from City ID.  
- * Till version `2024.10.20.01` being called from {@link getPermalinkCleaned()}
+ * Till version `2024.10.20.01` being called from {@link getPermalink()}
  * Till version `2024.11.27.01` named as getCountry
  * @param {number|null} cityId `City ID` or `0` or `null`
  * @returns {string} countryName
@@ -550,7 +550,7 @@ function getCountryName (cityId) {
 
 /**
  * Gets the `State` name with the `CityID`.  
- * Till version `2024.10.20.01` being called from {@link getPermalinkCleaned()}
+ * Till version `2024.10.20.01` being called from {@link getPermalink()}
  * @param {number|null} cityId `City ID` or `0` or `null`
  * @returns {string} // StateName or empty string
  */
@@ -581,6 +581,25 @@ function askReason () {
     }
     return reason;
 };
+
+function constructNew(iconAction) {
+    log('Construction of the Request');
+    const {
+        PL,
+        linkText,
+        count,
+        featureType,
+        requiredRank,
+        cityName,
+        countryName,
+        shouldBeLockedAt,
+        stateName
+    } = getPermalink(iconAction);
+    const iconActionLocale = iconAction.stsTranslate(requestLocale) ?? "ERROR";
+    log('Permalink generated');
+}
+
+
 
 /**
  * Construction of the request and then(prior some checks) sends it to the apporpiate community channels. Script Principal functionality.  
@@ -736,7 +755,7 @@ function construct (iconAction) {
         channel = 'closures';
     } else if (['BadUR', 'SolvedUR'].includes(iconAction)) {
         reason = askReason() ?? 'Cancelled';
-        permalink = wmeSDK_STS.Map.getPermalink(); // Override Permalink from getPermalinkCleaned.
+        permalink = wmeSDK_STS.Map.getPermalink(); // Override Permalink from getPermalink.
         details = `\n${'Reason'.stsTranslate(requestLocale)}: ${reason}`;
         channel = 'editing';
     }
@@ -947,7 +966,7 @@ function Loadactions() {
 
 /**
  * Recommended Lock. Gets the previously defined by the community lock level for the segment `roadType`.  
- * Till version `2024.10.20.01` being called from {@link getPermalinkCleaned()}
+ * Till version `2024.10.20.01` being called from {@link getPermalink()}
  * @param {W.DataModelObject|import("./sdkWME").Selection} selection
  * @param {number} current Always it's `-5` (for some reason...)
  * @returns {number} `ShouldBeLockedAt` as stated in the `RoadType` segment.
@@ -1309,7 +1328,7 @@ function versionCheck () {
 
 /**
  * Checks if the user has the required parameters (settings) set. Checks for the existance of WMESTS `localStorage` as the {@link neededparams}.
- * @returns {boolean}
+ * @returns {boolean} True if settings are set, false if not.
  */
 function checkNeededParams() {
     const neededparams = {
@@ -1493,27 +1512,24 @@ function addUpdateRequestIcons () {
 
 /**
  * Gets the WMESTS clicked button by ID `WMESTSActionButton` and stablishes which `class` selector is it for construct.
+ * Till version `2025.10.13.01` calls {@link construct()}.
  * @param {Event} e
  */
 function iconActionHandler (e) {
-    const target = e.target;
-    const iconAction = /**@type {Element}*/(target).getAttribute('class');
+    const target = /**@type {Element} */(e.target);
+    /**Satisfies `"Downlock" | "Lock" | "Validation" | "Closure" | "Open" | "SolvedUR" | "BadUR"`*/
+    const iconAction = target.getAttribute('class');
     log('click on ' + iconAction);
-    if (checkNeededParams()) {
-        log('Params set sent=' + sent);
-        if (sent >= 1) {
-            log('already sent');
-            if (confirm('Request already sent, send again'.stsTranslate(displayLocale) + ' ?')) {
-                log('send again');
-                sent=0;
-            }
-        }
-        if (sent === 0) {
-            construct(/**@type {"Downlock" | "Lock" | "Validation" | "Closure" | "Open" | "SolvedUR" | "BadUR"}*/(iconAction));
-        }
-    } else {
-        $('.slack-settings-tab').trigger('click');
+    if (!checkNeededParams()){$('.slack-settings-tab').trigger('click');return;}//Before sending the request check if the settings are ok.
+    log('Params set sent=' + sent);
+    if (sent>0) {
+        log('already sent');
+        if (confirm('Request already sent, send again'.stsTranslate(displayLocale) + ' ?')) {
+            log('send again');
+            sent=0;
+        }else{return;/*Prevent construction*/}
     }
+    construct(/**@type {"Downlock" | "Lock" | "Validation" | "Closure" | "Open" | "SolvedUR" | "BadUR"}*/(iconAction.toLowerCase()))
 };
 
 /**
