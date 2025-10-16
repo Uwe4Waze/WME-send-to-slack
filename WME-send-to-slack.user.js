@@ -4,7 +4,7 @@
 // @namespace       https://wmests.bowlman.be
 // @description     Script to send Unlock/Closures/Validations requests to almost every Waze communities platform channels.
 // @description:fr  Ce script vous permettant d'envoyer vos demandes de délock/fermeture et de validation directement sur slack
-// @version         2025.01.07.01
+// @version         2025.10.15.01
 // @downloadURL     https://update.greasyfork.org/scripts/408365/WME%20Send%20to%20Slack.user.js
 // @updateURL       https://update.greasyfork.org/scripts/408365/WME%20Send%20to%20Slack.user.js
 // @include         /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor.*$/
@@ -287,8 +287,6 @@ function init () {
     panelObserver.observe(document.getElementById('panel-container'), { childList: true, subtree: true });
 
     setTimeout(versionCheck,2000);
-
-    $('#WSTSFS-Container').css('display', 'block');
 };
 
 // Functions used by the Script
@@ -376,7 +374,7 @@ async function requestTranslations (locale) {
     }
     tstr = (locale === 'Default') ? 'default language' : `locale: ${locale}`;
     log(`Fetch translations for ${tstr}`);
-    const request = new Request(`${sheetsAPI.link}${sheetsAPI.sheet}/values/${locale}!${sheetsAPI.range}`, {headers: new Headers({"X-goog-api-key": sheetsAPI.key})});
+    const request = new Request(`${sheetsAPI.link}${sheetsAPI.sheet}/values/${locale ?? 'Default'/*TODO: Erase and reform updateLanguages f(x). This is a quick-fix for a bug related to localization.*/}!${sheetsAPI.range}`, {headers: new Headers({"X-goog-api-key": sheetsAPI.key})});
     const response = await fetch(request);
     if (!response.ok) {
         WazeWrap.Alerts.error(SCRIPT_NAME, 'Cannot connect to Google Sheets API');
@@ -1000,7 +998,7 @@ function getShouldLockedAt (selection, current){
     return ShouldBeLockedAt;
 };
 /**
- * Update the language in the Browser's database. Nothing related to localization.  
+ * Update the language in the Browser's database. Related to localization.  
  * This loads the options for selecting different channels (for countries which have two language channels) in the settings menu.
  * Also sets `localStorage` for `WMESTSServer`.
  * Till version `2024.10.20.01` being called from {@link updateStates()} and {@link LoadTab()}
@@ -1336,6 +1334,8 @@ function checkNeededParams() {
         WMESTSState: '',
         WMESTSServer: ''
     };
+    const USER_SCRIPTS_TAB = $('[data-for="userscript_tab"]');
+    const USERSCRIPTS_SIDEBAR_BUTTON = $(USER_SCRIPTS_TAB[0].shadowRoot).find('button');
     // Inits
     log('Checking the needed parameters');
     let check = true;
@@ -1351,6 +1351,10 @@ function checkNeededParams() {
     // How was the check going on?
     if (!check) {
         WazeWrap.Alerts.error(SCRIPT_NAME, 'Missing settings, please set all of the following dropdown in the left panel'.stsTranslate(displayLocale));
+        if (!USERSCRIPTS_SIDEBAR_BUTTON.hasClass('selected')) {
+            USERSCRIPTS_SIDEBAR_BUTTON.trigger('click');
+        }
+        $('[title="WME Send to Slack"]').parent().trigger('click')//UserScripts tabs - WMESTS
     }
     return check;
 }
@@ -1520,7 +1524,7 @@ function iconActionHandler (e) {
     /**Satisfies `"Downlock" | "Lock" | "Validation" | "Closure" | "Open" | "SolvedUR" | "BadUR"`*/
     const iconAction = target.getAttribute('class');
     log('click on ' + iconAction);
-    if (!checkNeededParams()){$('.slack-settings-tab').trigger('click');return;}//Before sending the request check if the settings are ok.
+    if (!checkNeededParams()){return;}//Before sending the request check if the settings are ok.
     log('Params set sent=' + sent);
     if (sent>0) {
         log('already sent');
@@ -1761,7 +1765,7 @@ function noop () {};
  * Function to translate text into requested language by lookup in {@link translationsMap}.
  * @param {string} locale locale/language to translate into.
  * @param {*} thisArg
- * @returns returns translated text if translation available, otherwise returns original text.
+ * @returns {string} returns translated text if translation available, otherwise returns original text.
  */
 function translate (locale, thisArg) {
     let translatedText = thisArg ?? this.toString();
